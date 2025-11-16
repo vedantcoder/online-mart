@@ -1,12 +1,12 @@
-import { create } from 'zustand';
-import { User } from '@/lib/models/User';
-import { AuthService, RegisterData } from '@/lib/services/AuthService';
+import { create } from "zustand";
+import { User } from "@/lib/models/User";
+import { AuthService, RegisterData } from "@/lib/services/AuthService";
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  
+
   // Actions
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;

@@ -1,11 +1,11 @@
-import { supabase } from '@/lib/supabase/client';
-import { Customer } from '@/lib/models/Customer';
-import { Retailer } from '@/lib/models/Retailer';
-import { Wholesaler } from '@/lib/models/Wholesaler';
-import { DeliveryPerson } from '@/lib/models/DeliveryPerson';
-import { User } from '@/lib/models/User';
+import { supabase } from "@/lib/supabase/client";
+import { Customer } from "@/lib/models/Customer";
+import { Retailer } from "@/lib/models/Retailer";
+import { Wholesaler } from "@/lib/models/Wholesaler";
+import { DeliveryPerson } from "@/lib/models/DeliveryPerson";
+import { User } from "@/lib/models/User";
 
-export type UserRole = 'customer' | 'retailer' | 'wholesaler' | 'delivery';
+export type UserRole = "customer" | "retailer" | "wholesaler" | "delivery";
 
 export interface RegisterData {
   email: string;
@@ -42,7 +42,7 @@ export interface RegisterData {
     gst_number?: string;
   };
   delivery?: {
-    vehicle_type?: 'bike' | 'scooter' | 'van' | 'truck';
+    vehicle_type?: "bike" | "scooter" | "van" | "truck";
     vehicle_number?: string;
     license_number?: string;
   };
@@ -71,13 +71,13 @@ export class AuthService {
     });
 
     if (authError) throw authError;
-    if (!authData.user) throw new Error('User creation failed');
+    if (!authData.user) throw new Error("User creation failed");
 
     const userId = authData.user.id;
 
     try {
       // Create profile
-      const { error: profileError } = await supabase.from('profiles').insert({
+      const { error: profileError } = await supabase.from("profiles").insert({
         id: userId,
         email: data.email,
         phone: data.phone,
@@ -89,18 +89,18 @@ export class AuthService {
 
       // Create role-specific record
       switch (data.role) {
-        case 'customer':
-          await supabase.from('customers').insert({
+        case "customer":
+          await supabase.from("customers").insert({
             id: userId,
             ...data.customer,
           });
           break;
 
-        case 'retailer':
+        case "retailer":
           if (!data.retailer?.shop_name) {
-            throw new Error('Shop name is required for retailers');
+            throw new Error("Shop name is required for retailers");
           }
-          await supabase.from('retailers').insert({
+          await supabase.from("retailers").insert({
             id: userId,
             shop_name: data.retailer.shop_name,
             shop_address: data.retailer.shop_address,
@@ -112,11 +112,11 @@ export class AuthService {
           });
           break;
 
-        case 'wholesaler':
+        case "wholesaler":
           if (!data.wholesaler?.business_name) {
-            throw new Error('Business name is required for wholesalers');
+            throw new Error("Business name is required for wholesalers");
           }
-          await supabase.from('wholesalers').insert({
+          await supabase.from("wholesalers").insert({
             id: userId,
             business_name: data.wholesaler.business_name,
             business_address: data.wholesaler.business_address,
@@ -129,8 +129,8 @@ export class AuthService {
           });
           break;
 
-        case 'delivery':
-          await supabase.from('delivery_persons').insert({
+        case "delivery":
+          await supabase.from("delivery_persons").insert({
             id: userId,
             vehicle_type: data.delivery?.vehicle_type,
             vehicle_number: data.delivery?.vehicle_number,
@@ -158,7 +158,7 @@ export class AuthService {
     });
 
     if (error) throw error;
-    if (!data.user) throw new Error('Login failed');
+    if (!data.user) throw new Error("Login failed");
 
     return await this.getCurrentUser();
   }
@@ -168,7 +168,7 @@ export class AuthService {
    */
   static async loginWithGoogle() {
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -183,7 +183,7 @@ export class AuthService {
    */
   static async loginWithFacebook() {
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
+      provider: "facebook",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -212,7 +212,7 @@ export class AuthService {
     const { data, error } = await supabase.auth.verifyOtp({
       phone,
       token,
-      type: 'sms',
+      type: "sms",
     });
 
     if (error) throw error;
@@ -259,58 +259,58 @@ export class AuthService {
     } = await supabase.auth.getUser();
 
     if (authError) throw authError;
-    if (!user) throw new Error('No authenticated user');
+    if (!user) throw new Error("No authenticated user");
 
     // Get profile
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
       .single();
 
     if (profileError) throw profileError;
-    if (!profile) throw new Error('Profile not found');
+    if (!profile) throw new Error("Profile not found");
 
     // Get role-specific data and create appropriate user instance
     switch (profile.role) {
-      case 'customer': {
+      case "customer": {
         const { data: customerData, error } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('id', user.id)
+          .from("customers")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (error) throw error;
         return new Customer(profile, customerData);
       }
 
-      case 'retailer': {
+      case "retailer": {
         const { data: retailerData, error } = await supabase
-          .from('retailers')
-          .select('*')
-          .eq('id', user.id)
+          .from("retailers")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (error) throw error;
         return new Retailer(profile, retailerData);
       }
 
-      case 'wholesaler': {
+      case "wholesaler": {
         const { data: wholesalerData, error } = await supabase
-          .from('wholesalers')
-          .select('*')
-          .eq('id', user.id)
+          .from("wholesalers")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (error) throw error;
         return new Wholesaler(profile, wholesalerData);
       }
 
-      case 'delivery': {
+      case "delivery": {
         const { data: deliveryData, error } = await supabase
-          .from('delivery_persons')
-          .select('*')
-          .eq('id', user.id)
+          .from("delivery_persons")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (error) throw error;

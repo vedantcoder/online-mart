@@ -1,9 +1,9 @@
-import { User, Location } from './User';
-import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/lib/types/database.types';
+import { User, Location } from "./User";
+import { supabase } from "@/lib/supabase/client";
+import { Database } from "@/lib/types/database.types";
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type WholesalerData = Database['public']['Tables']['wholesalers']['Row'];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type WholesalerData = Database["public"]["Tables"]["wholesalers"]["Row"];
 
 /**
  * Wholesaler class - represents bulk suppliers who sell to retailers
@@ -58,18 +58,20 @@ export class Wholesaler extends User {
    */
   async getInventory() {
     const { data, error } = await supabase
-      .from('inventory')
-      .select(`
+      .from("inventory")
+      .select(
+        `
         *,
         product:products(
           *,
           category:categories(*),
           images:product_images(*)
         )
-      `)
-      .eq('owner_id', this.id)
-      .eq('owner_type', 'wholesaler')
-      .order('updated_at', { ascending: false });
+      `
+      )
+      .eq("owner_id", this.id)
+      .eq("owner_type", "wholesaler")
+      .order("updated_at", { ascending: false });
 
     if (error) throw error;
     return data;
@@ -84,17 +86,15 @@ export class Wholesaler extends User {
     price: number,
     mrp?: number
   ) {
-    const { error } = await supabase
-      .from('inventory')
-      .insert({
-        product_id: productId,
-        owner_id: this.id,
-        owner_type: 'wholesaler',
-        quantity,
-        price,
-        mrp,
-        is_available: quantity > 0,
-      });
+    const { error } = await supabase.from("inventory").insert({
+      product_id: productId,
+      owner_id: this.id,
+      owner_type: "wholesaler",
+      quantity,
+      price,
+      mrp,
+      is_available: quantity > 0,
+    });
 
     if (error) throw error;
   }
@@ -104,14 +104,14 @@ export class Wholesaler extends User {
    */
   async updateStock(inventoryId: string, quantity: number) {
     const { error } = await supabase
-      .from('inventory')
+      .from("inventory")
       .update({
         quantity,
         is_available: quantity > 0,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', inventoryId)
-      .eq('owner_id', this.id);
+      .eq("id", inventoryId)
+      .eq("owner_id", this.id);
 
     if (error) throw error;
   }
@@ -121,14 +121,14 @@ export class Wholesaler extends User {
    */
   async updatePrice(inventoryId: string, price: number, mrp?: number) {
     const { error } = await supabase
-      .from('inventory')
+      .from("inventory")
       .update({
         price,
         mrp,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', inventoryId)
-      .eq('owner_id', this.id);
+      .eq("id", inventoryId)
+      .eq("owner_id", this.id);
 
     if (error) throw error;
   }
@@ -138,17 +138,19 @@ export class Wholesaler extends User {
    */
   async getRetailerOrders(status?: string) {
     let query = supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         customer:profiles!orders_customer_id_fkey(*)
-      `)
-      .eq('seller_id', this.id)
-      .order('created_at', { ascending: false });
+      `
+      )
+      .eq("seller_id", this.id)
+      .order("created_at", { ascending: false });
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq("status", status);
     }
 
     const { data, error } = await query;
@@ -162,16 +164,18 @@ export class Wholesaler extends User {
    */
   async getConnectedRetailers() {
     const { data, error } = await supabase
-      .from('retailer_wholesaler_relationships')
-      .select(`
+      .from("retailer_wholesaler_relationships")
+      .select(
+        `
         *,
         retailer:retailers(
           *,
           profile:profiles(*)
         )
-      `)
-      .eq('wholesaler_id', this.id)
-      .eq('status', 'approved');
+      `
+      )
+      .eq("wholesaler_id", this.id)
+      .eq("status", "approved");
 
     if (error) throw error;
     return data;
@@ -182,13 +186,13 @@ export class Wholesaler extends User {
    */
   async approveRetailer(retailerId: string) {
     const { error } = await supabase
-      .from('retailer_wholesaler_relationships')
+      .from("retailer_wholesaler_relationships")
       .update({
-        status: 'approved',
+        status: "approved",
         approved_at: new Date().toISOString(),
       })
-      .eq('retailer_id', retailerId)
-      .eq('wholesaler_id', this.id);
+      .eq("retailer_id", retailerId)
+      .eq("wholesaler_id", this.id);
 
     if (error) throw error;
   }
@@ -198,18 +202,18 @@ export class Wholesaler extends User {
    */
   async updateOrderStatus(orderId: string, status: string, notes?: string) {
     const { error } = await supabase
-      .from('orders')
+      .from("orders")
       .update({
         status,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
-      .eq('seller_id', this.id);
+      .eq("id", orderId)
+      .eq("seller_id", this.id);
 
     if (error) throw error;
 
     // Add to tracking
-    await supabase.from('order_tracking').insert({
+    await supabase.from("order_tracking").insert({
       order_id: orderId,
       status,
       notes,
@@ -228,12 +232,14 @@ export class Wholesaler extends User {
       this.getNotifications(5),
     ]);
 
-    const pendingOrders = orders?.filter((o) => o.status === 'pending').length || 0;
-    const todayOrders = orders?.filter((o) => {
-      const orderDate = new Date(o.created_at);
-      const today = new Date();
-      return orderDate.toDateString() === today.toDateString();
-    }).length || 0;
+    const pendingOrders =
+      orders?.filter((o) => o.status === "pending").length || 0;
+    const todayOrders =
+      orders?.filter((o) => {
+        const orderDate = new Date(o.created_at);
+        const today = new Date();
+        return orderDate.toDateString() === today.toDateString();
+      }).length || 0;
 
     return {
       totalOrders: orders?.length || 0,

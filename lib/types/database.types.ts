@@ -811,7 +811,7 @@ export interface Database {
           id: string;
           retailer_id: string;
           wholesaler_id: string;
-          status: 'pending' | 'approved' | 'rejected';
+          status: "pending" | "approved" | "rejected";
           created_at: string;
           approved_at: string | null;
         };
@@ -819,7 +819,7 @@ export interface Database {
           id?: string;
           retailer_id: string;
           wholesaler_id: string;
-          status?: 'pending' | 'approved' | 'rejected';
+          status?: "pending" | "approved" | "rejected";
           created_at?: string;
           approved_at?: string | null;
         };
@@ -827,7 +827,7 @@ export interface Database {
           id?: string;
           retailer_id?: string;
           wholesaler_id?: string;
-          status?: 'pending' | 'approved' | 'rejected';
+          status?: "pending" | "approved" | "rejected";
           created_at?: string;
           approved_at?: string | null;
         };
@@ -837,7 +837,14 @@ export interface Database {
           id: string;
           order_id: string;
           delivery_person_id: string;
-          status: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          status:
+            | "assigned"
+            | "accepted"
+            | "rejected"
+            | "picked_up"
+            | "in_transit"
+            | "delivered"
+            | "failed";
           assigned_at: string;
           accepted_at: string | null;
           picked_up_at: string | null;
@@ -849,7 +856,14 @@ export interface Database {
           id?: string;
           order_id: string;
           delivery_person_id: string;
-          status?: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          status?:
+            | "assigned"
+            | "accepted"
+            | "rejected"
+            | "picked_up"
+            | "in_transit"
+            | "delivered"
+            | "failed";
           assigned_at?: string;
           accepted_at?: string | null;
           picked_up_at?: string | null;
@@ -861,7 +875,14 @@ export interface Database {
           id?: string;
           order_id?: string;
           delivery_person_id?: string;
-          status?: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          status?:
+            | "assigned"
+            | "accepted"
+            | "rejected"
+            | "picked_up"
+            | "in_transit"
+            | "delivered"
+            | "failed";
           assigned_at?: string;
           accepted_at?: string | null;
           picked_up_at?: string | null;

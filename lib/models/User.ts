@@ -1,7 +1,7 @@
-import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/lib/types/database.types';
+import { supabase } from "@/lib/supabase/client";
+import { Database } from "@/lib/types/database.types";
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 export interface Location {
   latitude: number;
@@ -21,7 +21,7 @@ export abstract class User {
   protected email: string;
   protected phone?: string;
   protected fullName?: string;
-  protected role: 'customer' | 'retailer' | 'wholesaler' | 'delivery';
+  protected role: "customer" | "retailer" | "wholesaler" | "delivery";
   protected avatarUrl?: string;
   protected isActive: boolean;
 
@@ -52,7 +52,7 @@ export abstract class User {
     return this.fullName;
   }
 
-  getRole(): 'customer' | 'retailer' | 'wholesaler' | 'delivery' {
+  getRole(): "customer" | "retailer" | "wholesaler" | "delivery" {
     return this.role;
   }
 
@@ -73,12 +73,12 @@ export abstract class User {
     avatar_url?: string;
   }): Promise<void> {
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', this.id);
+      .eq("id", this.id);
 
     if (error) throw error;
 
@@ -93,10 +93,10 @@ export abstract class User {
    */
   async getNotifications(limit: number = 20) {
     const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', this.id)
-      .order('created_at', { ascending: false })
+      .from("notifications")
+      .select("*")
+      .eq("user_id", this.id)
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) throw error;
@@ -108,13 +108,13 @@ export abstract class User {
    */
   async markNotificationRead(notificationId: string): Promise<void> {
     const { error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .update({
         is_read: true,
         read_at: new Date().toISOString(),
       })
-      .eq('id', notificationId)
-      .eq('user_id', this.id);
+      .eq("id", notificationId)
+      .eq("user_id", this.id);
 
     if (error) throw error;
   }
@@ -124,10 +124,10 @@ export abstract class User {
    */
   async getUnreadCount(): Promise<number> {
     const { count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', this.id)
-      .eq('is_read', false);
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", this.id)
+      .eq("is_read", false);
 
     if (error) throw error;
     return count || 0;

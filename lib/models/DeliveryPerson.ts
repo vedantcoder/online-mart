@@ -1,15 +1,16 @@
-import { User, Location } from './User';
-import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/lib/types/database.types';
+import { User, Location } from "./User";
+import { supabase } from "@/lib/supabase/client";
+import { Database } from "@/lib/types/database.types";
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type DeliveryPersonData = Database['public']['Tables']['delivery_persons']['Row'];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type DeliveryPersonData =
+  Database["public"]["Tables"]["delivery_persons"]["Row"];
 
 /**
  * DeliveryPerson class - represents delivery partners who deliver orders
  */
 export class DeliveryPerson extends User {
-  private vehicleType?: 'bike' | 'scooter' | 'van' | 'truck';
+  private vehicleType?: "bike" | "scooter" | "van" | "truck";
   private vehicleNumber?: string;
   private licenseNumber?: string;
   private currentLocation?: Location;
@@ -60,12 +61,12 @@ export class DeliveryPerson extends User {
    */
   async updateLocation(latitude: number, longitude: number) {
     const { error } = await supabase
-      .from('delivery_persons')
+      .from("delivery_persons")
       .update({
         current_latitude: latitude,
         current_longitude: longitude,
       })
-      .eq('id', this.id);
+      .eq("id", this.id);
 
     if (error) throw error;
 
@@ -79,11 +80,11 @@ export class DeliveryPerson extends User {
     const newStatus = !this.isAvailable;
 
     const { error } = await supabase
-      .from('delivery_persons')
+      .from("delivery_persons")
       .update({
         is_available: newStatus,
       })
-      .eq('id', this.id);
+      .eq("id", this.id);
 
     if (error) throw error;
 
@@ -96,16 +97,24 @@ export class DeliveryPerson extends User {
    */
   async getPendingDeliveries() {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         customer:profiles!orders_customer_id_fkey(*),
         seller:profiles!orders_seller_id_fkey(*)
-      `)
-      .eq('delivery_person_id', this.id)
-      .in('status', ['confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery'])
-      .order('created_at', { ascending: true });
+      `
+      )
+      .eq("delivery_person_id", this.id)
+      .in("status", [
+        "confirmed",
+        "processing",
+        "packed",
+        "shipped",
+        "out_for_delivery",
+      ])
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data;
@@ -116,19 +125,21 @@ export class DeliveryPerson extends User {
    */
   async getActiveDelivery() {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         customer:profiles!orders_customer_id_fkey(*),
         seller:profiles!orders_seller_id_fkey(*),
         tracking:order_tracking(*)
-      `)
-      .eq('delivery_person_id', this.id)
-      .eq('status', 'out_for_delivery')
+      `
+      )
+      .eq("delivery_person_id", this.id)
+      .eq("status", "out_for_delivery")
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== "PGRST116") throw error;
     return data || null;
   }
 
@@ -137,21 +148,21 @@ export class DeliveryPerson extends User {
    */
   async acceptDelivery(orderId: string) {
     const { error } = await supabase
-      .from('orders')
+      .from("orders")
       .update({
-        status: 'processing',
+        status: "processing",
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
-      .eq('delivery_person_id', this.id);
+      .eq("id", orderId)
+      .eq("delivery_person_id", this.id);
 
     if (error) throw error;
 
     // Add tracking
-    await supabase.from('order_tracking').insert({
+    await supabase.from("order_tracking").insert({
       order_id: orderId,
-      status: 'processing',
-      notes: 'Delivery person accepted the order',
+      status: "processing",
+      notes: "Delivery person accepted the order",
       created_by: this.id,
     });
   }
@@ -161,13 +172,13 @@ export class DeliveryPerson extends User {
    */
   async rejectDelivery(orderId: string) {
     const { error } = await supabase
-      .from('orders')
+      .from("orders")
       .update({
         delivery_person_id: null,
         assigned_at: null,
       })
-      .eq('id', orderId)
-      .eq('delivery_person_id', this.id);
+      .eq("id", orderId)
+      .eq("delivery_person_id", this.id);
 
     if (error) throw error;
   }
@@ -177,7 +188,7 @@ export class DeliveryPerson extends User {
    */
   async updateDeliveryStatus(
     orderId: string,
-    status: 'picked_up' | 'in_transit' | 'delivered',
+    status: "picked_up" | "in_transit" | "delivered",
     notes?: string
   ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,26 +196,26 @@ export class DeliveryPerson extends User {
       updated_at: new Date().toISOString(),
     };
 
-    if (status === 'picked_up') {
-      updates.status = 'shipped';
+    if (status === "picked_up") {
+      updates.status = "shipped";
       updates.picked_up_at = new Date().toISOString();
-    } else if (status === 'in_transit') {
-      updates.status = 'out_for_delivery';
-    } else if (status === 'delivered') {
-      updates.status = 'delivered';
+    } else if (status === "in_transit") {
+      updates.status = "out_for_delivery";
+    } else if (status === "delivered") {
+      updates.status = "delivered";
       updates.actual_delivery = new Date().toISOString();
     }
 
     const { error } = await supabase
-      .from('orders')
+      .from("orders")
       .update(updates)
-      .eq('id', orderId)
-      .eq('delivery_person_id', this.id);
+      .eq("id", orderId)
+      .eq("delivery_person_id", this.id);
 
     if (error) throw error;
 
     // Add tracking
-    await supabase.from('order_tracking').insert({
+    await supabase.from("order_tracking").insert({
       order_id: orderId,
       status: updates.status,
       notes,
@@ -214,13 +225,13 @@ export class DeliveryPerson extends User {
     });
 
     // If delivered, increment total deliveries
-    if (status === 'delivered') {
+    if (status === "delivered") {
       await supabase
-        .from('delivery_persons')
+        .from("delivery_persons")
         .update({
           total_deliveries: this.totalDeliveries + 1,
         })
-        .eq('id', this.id);
+        .eq("id", this.id);
 
       this.totalDeliveries += 1;
     }
@@ -231,16 +242,18 @@ export class DeliveryPerson extends User {
    */
   async getDeliveryHistory(limit: number = 20) {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         customer:profiles!orders_customer_id_fkey(*),
         seller:profiles!orders_seller_id_fkey(*)
-      `)
-      .eq('delivery_person_id', this.id)
-      .eq('status', 'delivered')
-      .order('actual_delivery', { ascending: false })
+      `
+      )
+      .eq("delivery_person_id", this.id)
+      .eq("status", "delivered")
+      .order("actual_delivery", { ascending: false })
       .limit(limit);
 
     if (error) throw error;
@@ -251,18 +264,20 @@ export class DeliveryPerson extends User {
    * Get dashboard data
    */
   async getDashboardData() {
-    const [pendingDeliveries, activeDelivery, history, notifications] = await Promise.all([
-      this.getPendingDeliveries(),
-      this.getActiveDelivery(),
-      this.getDeliveryHistory(5),
-      this.getNotifications(5),
-    ]);
+    const [pendingDeliveries, activeDelivery, history, notifications] =
+      await Promise.all([
+        this.getPendingDeliveries(),
+        this.getActiveDelivery(),
+        this.getDeliveryHistory(5),
+        this.getNotifications(5),
+      ]);
 
-    const todayDeliveries = history?.filter((d) => {
-      const deliveryDate = new Date(d.actual_delivery!);
-      const today = new Date();
-      return deliveryDate.toDateString() === today.toDateString();
-    }).length || 0;
+    const todayDeliveries =
+      history?.filter((d) => {
+        const deliveryDate = new Date(d.actual_delivery!);
+        const today = new Date();
+        return deliveryDate.toDateString() === today.toDateString();
+      }).length || 0;
 
     return {
       pendingCount: pendingDeliveries?.length || 0,

@@ -1,9 +1,9 @@
-import { User, Location } from './User';
-import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/lib/types/database.types';
+import { User, Location } from "./User";
+import { supabase } from "@/lib/supabase/client";
+import { Database } from "@/lib/types/database.types";
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type CustomerData = Database['public']['Tables']['customers']['Row'];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type CustomerData = Database["public"]["Tables"]["customers"]["Row"];
 
 /**
  * Customer class - represents end users who browse and purchase products
@@ -22,15 +22,16 @@ export class Customer extends User {
     this.city = customerData.city || undefined;
     this.state = customerData.state || undefined;
     this.pincode = customerData.pincode || undefined;
-    
+
     if (customerData.latitude && customerData.longitude) {
       this.location = {
         latitude: Number(customerData.latitude),
         longitude: Number(customerData.longitude),
       };
     }
-    
-    this.preferences = (customerData.preferences as Record<string, unknown>) || {};
+
+    this.preferences =
+      (customerData.preferences as Record<string, unknown>) || {};
   }
 
   // Getters
@@ -53,29 +54,31 @@ export class Customer extends User {
     in_stock?: boolean;
   }) {
     let query = supabase
-      .from('products')
-      .select(`
+      .from("products")
+      .select(
+        `
         *,
         category:categories(*),
         images:product_images(*),
         inventory(*)
-      `)
-      .eq('is_active', true);
+      `
+      )
+      .eq("is_active", true);
 
     if (filters?.category_id) {
-      query = query.eq('category_id', filters.category_id);
+      query = query.eq("category_id", filters.category_id);
     }
 
     if (filters?.search) {
-      query = query.ilike('name', `%${filters.search}%`);
+      query = query.ilike("name", `%${filters.search}%`);
     }
 
     if (filters?.min_price) {
-      query = query.gte('base_price', filters.min_price);
+      query = query.gte("base_price", filters.min_price);
     }
 
     if (filters?.max_price) {
-      query = query.lte('base_price', filters.max_price);
+      query = query.lte("base_price", filters.max_price);
     }
 
     const { data, error } = await query;
@@ -92,22 +95,24 @@ export class Customer extends User {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let cart: any;
     const { data, error } = await supabase
-      .from('carts')
-      .select(`
+      .from("carts")
+      .select(
+        `
         *,
         items:cart_items(
           *,
           product:products(*),
           seller:profiles(*)
         )
-      `)
-      .eq('customer_id', this.id)
+      `
+      )
+      .eq("customer_id", this.id)
       .single();
 
     // If no cart exists, create one
-    if (error && error.code === 'PGRST116') {
+    if (error && error.code === "PGRST116") {
       const { data: newCart, error: createError } = await supabase
-        .from('carts')
+        .from("carts")
         .insert({ customer_id: this.id })
         .select()
         .single();
@@ -126,46 +131,49 @@ export class Customer extends User {
   /**
    * Add item to cart
    */
-  async addToCart(productId: string, sellerId: string, quantity: number, price: number) {
+  async addToCart(
+    productId: string,
+    sellerId: string,
+    quantity: number,
+    price: number
+  ) {
     const cart = await this.getCart();
 
     // Check if item already exists in cart
     const { data: existing } = await supabase
-      .from('cart_items')
-      .select('*')
-      .eq('cart_id', cart.id)
-      .eq('product_id', productId)
-      .eq('seller_id', sellerId)
+      .from("cart_items")
+      .select("*")
+      .eq("cart_id", cart.id)
+      .eq("product_id", productId)
+      .eq("seller_id", sellerId)
       .single();
 
     if (existing) {
       // Update quantity
       const { error } = await supabase
-        .from('cart_items')
+        .from("cart_items")
         .update({ quantity: existing.quantity + quantity })
-        .eq('id', existing.id);
+        .eq("id", existing.id);
 
       if (error) throw error;
     } else {
       // Insert new item
-      const { error } = await supabase
-        .from('cart_items')
-        .insert({
-          cart_id: cart.id,
-          product_id: productId,
-          seller_id: sellerId,
-          quantity,
-          price_at_addition: price,
-        });
+      const { error } = await supabase.from("cart_items").insert({
+        cart_id: cart.id,
+        product_id: productId,
+        seller_id: sellerId,
+        quantity,
+        price_at_addition: price,
+      });
 
       if (error) throw error;
     }
 
     // Update cart timestamp
     await supabase
-      .from('carts')
+      .from("carts")
       .update({ updated_at: new Date().toISOString() })
-      .eq('id', cart.id);
+      .eq("id", cart.id);
   }
 
   /**
@@ -173,9 +181,9 @@ export class Customer extends User {
    */
   async removeFromCart(cartItemId: string) {
     const { error } = await supabase
-      .from('cart_items')
+      .from("cart_items")
       .delete()
-      .eq('id', cartItemId);
+      .eq("id", cartItemId);
 
     if (error) throw error;
   }
@@ -189,9 +197,9 @@ export class Customer extends User {
     }
 
     const { error } = await supabase
-      .from('cart_items')
+      .from("cart_items")
       .update({ quantity })
-      .eq('id', cartItemId);
+      .eq("id", cartItemId);
 
     if (error) throw error;
   }
@@ -201,15 +209,17 @@ export class Customer extends User {
    */
   async getOrders(limit: number = 20) {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         seller:profiles(*),
         delivery_person:profiles(*)
-      `)
-      .eq('customer_id', this.id)
-      .order('created_at', { ascending: false })
+      `
+      )
+      .eq("customer_id", this.id)
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) throw error;
@@ -221,16 +231,18 @@ export class Customer extends User {
    */
   async getOrder(orderId: string) {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items(*),
         seller:profiles(*),
         delivery_person:profiles(*),
         tracking:order_tracking(*)
-      `)
-      .eq('id', orderId)
-      .eq('customer_id', this.id)
+      `
+      )
+      .eq("id", orderId)
+      .eq("customer_id", this.id)
       .single();
 
     if (error) throw error;
@@ -247,17 +259,15 @@ export class Customer extends User {
     comment?: string,
     title?: string
   ) {
-    const { error } = await supabase
-      .from('feedback')
-      .insert({
-        customer_id: this.id,
-        product_id: productId,
-        order_id: orderId,
-        rating,
-        comment,
-        title,
-        is_verified_purchase: true,
-      });
+    const { error } = await supabase.from("feedback").insert({
+      customer_id: this.id,
+      product_id: productId,
+      order_id: orderId,
+      rating,
+      comment,
+      title,
+      is_verified_purchase: true,
+    });
 
     if (error) throw error;
   }
@@ -266,14 +276,12 @@ export class Customer extends User {
    * Add product to wishlist
    */
   async addToWishlist(productId: string) {
-    const { error } = await supabase
-      .from('wishlists')
-      .insert({
-        customer_id: this.id,
-        product_id: productId,
-      });
+    const { error } = await supabase.from("wishlists").insert({
+      customer_id: this.id,
+      product_id: productId,
+    });
 
-    if (error && error.code !== '23505') throw error; // Ignore duplicate
+    if (error && error.code !== "23505") throw error; // Ignore duplicate
   }
 
   /**
@@ -281,17 +289,19 @@ export class Customer extends User {
    */
   async getWishlist() {
     const { data, error } = await supabase
-      .from('wishlists')
-      .select(`
+      .from("wishlists")
+      .select(
+        `
         *,
         product:products(
           *,
           images:product_images(*),
           category:categories(*)
         )
-      `)
-      .eq('customer_id', this.id)
-      .order('added_at', { ascending: false });
+      `
+      )
+      .eq("customer_id", this.id)
+      .order("added_at", { ascending: false });
 
     if (error) throw error;
     return data;
@@ -303,21 +313,23 @@ export class Customer extends User {
   async getRecommendations() {
     // Get user's browsing history (for future collaborative filtering)
     await supabase
-      .from('product_views')
-      .select('product_id')
-      .eq('user_id', this.id)
+      .from("product_views")
+      .select("product_id")
+      .eq("user_id", this.id)
       .limit(10);
 
     // For now, return products from similar categories
     // In production, implement collaborative filtering
     const { data, error } = await supabase
-      .from('products')
-      .select(`
+      .from("products")
+      .select(
+        `
         *,
         category:categories(*),
         images:product_images(*)
-      `)
-      .eq('is_active', true)
+      `
+      )
+      .eq("is_active", true)
       .limit(12);
 
     if (error) throw error;

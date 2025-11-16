@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { ShoppingBag, Store, Package, Truck } from 'lucide-react';
+import Link from "next/link";
+import { ShoppingBag, Store, Package, Truck } from "lucide-react";
 
 export default function Home() {
   return (
@@ -11,7 +11,8 @@ export default function Home() {
             Online-MART
           </h1>
           <p className="text-xl md:text-2xl text-gray-700 mb-12">
-            Multi-Tier Marketplace connecting Customers, Retailers, Wholesalers, and Delivery Partners
+            Multi-Tier Marketplace connecting Customers, Retailers, Wholesalers,
+            and Delivery Partners
           </p>
 
           {/* Role Cards */}
@@ -23,7 +24,9 @@ export default function Home() {
                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-500 transition-colors">
                     <ShoppingBag className="w-8 h-8 text-blue-600 group-hover:text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Customer</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Customer
+                  </h3>
                   <p className="text-sm text-gray-600 text-center">
                     Browse products, place orders, and track deliveries
                   </p>
@@ -38,7 +41,9 @@ export default function Home() {
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-green-500 transition-colors">
                     <Store className="w-8 h-8 text-green-600 group-hover:text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Retailer</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Retailer
+                  </h3>
                   <p className="text-sm text-gray-600 text-center">
                     Manage inventory, handle orders, connect with wholesalers
                   </p>
@@ -53,7 +58,9 @@ export default function Home() {
                   <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-500 transition-colors">
                     <Package className="w-8 h-8 text-purple-600 group-hover:text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Wholesaler</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Wholesaler
+                  </h3>
                   <p className="text-sm text-gray-600 text-center">
                     Supply to retailers, manage bulk inventory
                   </p>
@@ -68,7 +75,9 @@ export default function Home() {
                   <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-orange-500 transition-colors">
                     <Truck className="w-8 h-8 text-orange-600 group-hover:text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Delivery Partner</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Delivery Partner
+                  </h3>
                   <p className="text-sm text-gray-600 text-center">
                     Manage deliveries, update order status
                   </p>
