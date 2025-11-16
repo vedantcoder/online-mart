@@ -650,6 +650,226 @@ export interface Database {
           created_at?: string;
         };
       };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          product_id: string | null;
+          product_name: string;
+          quantity: number;
+          price_per_unit: number;
+          subtotal: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          product_id?: string | null;
+          product_name: string;
+          quantity: number;
+          price_per_unit: number;
+          subtotal: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          product_id?: string | null;
+          product_name?: string;
+          quantity?: number;
+          price_per_unit?: number;
+          subtotal?: number;
+          created_at?: string;
+        };
+      };
+      order_tracking: {
+        Row: {
+          id: string;
+          order_id: string;
+          status: string;
+          latitude: number | null;
+          longitude: number | null;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          status: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          status?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+      };
+      product_images: {
+        Row: {
+          id: string;
+          product_id: string;
+          image_url: string;
+          is_primary: boolean;
+          display_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          image_url: string;
+          is_primary?: boolean;
+          display_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          image_url?: string;
+          is_primary?: boolean;
+          display_order?: number;
+          created_at?: string;
+        };
+      };
+      wishlists: {
+        Row: {
+          id: string;
+          customer_id: string;
+          product_id: string;
+          added_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          product_id: string;
+          added_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          product_id?: string;
+          added_at?: string;
+        };
+      };
+      search_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          query: string;
+          filters: Json;
+          results_count: number | null;
+          searched_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          query: string;
+          filters?: Json;
+          results_count?: number | null;
+          searched_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          query?: string;
+          filters?: Json;
+          results_count?: number | null;
+          searched_at?: string;
+        };
+      };
+      product_views: {
+        Row: {
+          id: string;
+          user_id: string;
+          product_id: string;
+          viewed_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          product_id: string;
+          viewed_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          product_id?: string;
+          viewed_at?: string;
+        };
+      };
+      retailer_wholesaler_relationships: {
+        Row: {
+          id: string;
+          retailer_id: string;
+          wholesaler_id: string;
+          status: 'pending' | 'approved' | 'rejected';
+          created_at: string;
+          approved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          retailer_id: string;
+          wholesaler_id: string;
+          status?: 'pending' | 'approved' | 'rejected';
+          created_at?: string;
+          approved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          retailer_id?: string;
+          wholesaler_id?: string;
+          status?: 'pending' | 'approved' | 'rejected';
+          created_at?: string;
+          approved_at?: string | null;
+        };
+      };
+      delivery_assignments: {
+        Row: {
+          id: string;
+          order_id: string;
+          delivery_person_id: string;
+          status: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          assigned_at: string;
+          accepted_at: string | null;
+          picked_up_at: string | null;
+          delivered_at: string | null;
+          rejection_reason: string | null;
+          delivery_notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          delivery_person_id: string;
+          status?: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          assigned_at?: string;
+          accepted_at?: string | null;
+          picked_up_at?: string | null;
+          delivered_at?: string | null;
+          rejection_reason?: string | null;
+          delivery_notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          delivery_person_id?: string;
+          status?: 'assigned' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'failed';
+          assigned_at?: string;
+          accepted_at?: string | null;
+          picked_up_at?: string | null;
+          delivered_at?: string | null;
+          rejection_reason?: string | null;
+          delivery_notes?: string | null;
+        };
+      };
     };
   };
 }
