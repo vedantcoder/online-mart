@@ -66,6 +66,7 @@ export async function middleware(request: NextRequest) {
     "/delivery",
   ];
   const authRoutes = ["/login", "/register"];
+  const publicAuthRoutes = ["/auth/callback", "/auth/complete-profile"];
 
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
@@ -73,6 +74,14 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
+  const isPublicAuthRoute = publicAuthRoutes.some((route) =>
+    request.nextUrl.pathname.startsWith(route)
+  );
+
+  // Allow public auth routes without redirection
+  if (isPublicAuthRoute) {
+    return response;
+  }
 
   // Redirect to login if accessing protected route without auth
   if (isProtectedRoute && !user) {

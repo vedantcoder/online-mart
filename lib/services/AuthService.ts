@@ -342,3 +342,6 @@ export class AuthService {
     return session;
   }
 }
+
+// Export OAuth methods separately for easier imports
+export const { loginWithGoogle, loginWithFacebook } = AuthService;
