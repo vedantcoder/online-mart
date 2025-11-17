@@ -3,12 +3,22 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
-import { DeliveryPerson } from "@/lib/models/DeliveryPerson";
-import { Home, Package, MapPin, TrendingUp, Clock, LogOut } from "lucide-react";
+import {
+  Home,
+  Package,
+  MapPin,
+  CheckCircle,
+  Clock,
+  LogOut,
+  User,
+  TrendingUp,
+} from "lucide-react";
+import { useRoleValidation } from "@/hooks/useRoleValidation";
 
 export default function DeliveryDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  useRoleValidation(); // Validate role and show toast if mismatch
 
   useEffect(() => {
     if (!user || user.getRole() !== "delivery") {
@@ -24,12 +34,10 @@ export default function DeliveryDashboard() {
   if (!user || user.getRole() !== "delivery") {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        Loading...
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
       </div>
     );
   }
-
-  const delivery = user as DeliveryPerson;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -53,28 +61,28 @@ export default function DeliveryDashboard() {
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <Package size={20} className="mr-3" />
-            Available Deliveries
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
-          >
-            <Clock size={20} className="mr-3" />
-            Active Delivery
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
-          >
-            <TrendingUp size={20} className="mr-3" />
-            Delivery History
+            Assigned Deliveries
           </a>
           <a
             href="#"
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <MapPin size={20} className="mr-3" />
-            Update Location
+            Route Map
+          </a>
+          <a
+            href="#"
+            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            <CheckCircle size={20} className="mr-3" />
+            Completed
+          </a>
+          <a
+            href="#"
+            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            <User size={20} className="mr-3" />
+            Profile
           </a>
         </nav>
 
@@ -93,29 +101,11 @@ export default function DeliveryDashboard() {
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">
-            Welcome back, {delivery.getFullName()}!
+            Welcome back, {user.getFullName() || "Delivery Partner"}!
           </h2>
           <p className="text-gray-600 mt-1">
-            Manage your deliveries and track your earnings.
+            Here&apos;s your delivery schedule for today.
           </p>
-        </div>
-
-        {/* Availability Toggle */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Availability Status
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Toggle to start accepting deliveries
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" />
-              <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-            </label>
-          </div>
         </div>
 
         {/* Stats Cards */}
@@ -126,17 +116,17 @@ export default function DeliveryDashboard() {
                 <p className="text-sm text-gray-600">Pending Deliveries</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
               </div>
-              <Package size={32} className="text-orange-600" />
+              <Clock size={32} className="text-orange-600" />
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Delivery</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">None</p>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
               </div>
-              <Clock size={32} className="text-blue-600" />
+              <Package size={32} className="text-blue-600" />
             </div>
           </div>
 
@@ -146,7 +136,7 @@ export default function DeliveryDashboard() {
                 <p className="text-sm text-gray-600">Completed Today</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
               </div>
-              <TrendingUp size={32} className="text-green-600" />
+              <CheckCircle size={32} className="text-green-600" />
             </div>
           </div>
 
@@ -161,29 +151,39 @@ export default function DeliveryDashboard() {
           </div>
         </div>
 
-        {/* Available Deliveries */}
+        {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Available Deliveries
+            Quick Actions
           </h3>
-          <div className="text-center py-12 text-gray-500">
-            <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <p>No deliveries available at the moment</p>
-            <p className="text-sm mt-2">
-              Turn on availability to receive delivery requests
-            </p>
+          <div className="grid grid-cols-3 gap-4">
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Package size={24} className="text-orange-600 mb-2" />
+              <p className="font-medium text-gray-900">View Deliveries</p>
+              <p className="text-sm text-gray-600">Check assigned orders</p>
+            </button>
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <MapPin size={24} className="text-blue-600 mb-2" />
+              <p className="font-medium text-gray-900">Open Map</p>
+              <p className="text-sm text-gray-600">Navigate to location</p>
+            </button>
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <CheckCircle size={24} className="text-green-600 mb-2" />
+              <p className="font-medium text-gray-900">Update Status</p>
+              <p className="text-sm text-gray-600">Mark delivery complete</p>
+            </button>
           </div>
         </div>
 
-        {/* Recent Deliveries */}
+        {/* Today&apos;s Deliveries */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Recent Deliveries
+            Today&apos;s Deliveries
           </h3>
           <div className="text-center py-12 text-gray-500">
-            <p>No delivery history yet</p>
+            <p>No deliveries assigned</p>
             <p className="text-sm mt-2">
-              Your completed deliveries will appear here
+              New deliveries will appear here when assigned
             </p>
           </div>
         </div>

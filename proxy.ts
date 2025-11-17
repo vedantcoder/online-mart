@@ -1,7 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  console.log("[PROXY] Incoming:", request.nextUrl.pathname);
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -57,13 +58,14 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log("[PROXY] user:", user?.id, "role:", user?.role);
 
   // Protected routes
   const protectedRoutes = [
-    "/customer",
-    "/retailer",
-    "/wholesaler",
-    "/delivery",
+    "/dashboard/customer",
+    "/dashboard/retailer",
+    "/dashboard/wholesaler",
+    "/dashboard/delivery",
   ];
   const authRoutes = ["/login", "/register"];
   const publicAuthRoutes = ["/auth/callback", "/auth/complete-profile"];
@@ -80,11 +82,16 @@ export async function middleware(request: NextRequest) {
 
   // Allow public auth routes without redirection
   if (isPublicAuthRoute) {
+    console.log(
+      "[PROXY] Public auth route, allowing:",
+      request.nextUrl.pathname
+    );
     return response;
   }
 
   // Redirect to login if accessing protected route without auth
   if (isProtectedRoute && !user) {
+    console.log("[PROXY] Protected route, no user. Redirecting to /login");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -95,14 +102,20 @@ export async function middleware(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .single();
+    console.log("[PROXY] Auth route, user present. Profile:", profile);
 
     if (profile?.role) {
+      console.log(
+        "[PROXY] Redirecting to dashboard:",
+        `/dashboard/${profile.role}`
+      );
       return NextResponse.redirect(
-        new URL(`/${profile.role}/dashboard`, request.url)
+        new URL(`/dashboard/${profile.role}`, request.url)
       );
     }
   }
 
+  console.log("[PROXY] Allowing request to proceed:", request.nextUrl.pathname);
   return response;
 }
 

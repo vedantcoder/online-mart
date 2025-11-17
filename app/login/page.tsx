@@ -21,6 +21,11 @@ export default function LoginPage() {
 
   const handleSocialLogin = async (provider: "google" | "facebook") => {
     try {
+      // Store expected role if specified from home page
+      if (role) {
+        localStorage.setItem("expected_login_role", role);
+      }
+
       if (provider === "google") {
         const { loginWithGoogle } = await import("@/lib/services/AuthService");
         await loginWithGoogle();
@@ -50,20 +55,38 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+
+      // Wait a brief moment for store to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Get user role and validate against expected role
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        toast.error("Failed to load user data");
+        setIsLoading(false);
+        return;
+      }
+
+      const userRole = user.getRole();
+
       toast.success("Login successful!");
 
-      // Get user role and redirect to appropriate dashboard
-      const { user } = useAuthStore.getState();
-      if (user) {
-        router.push(`/${user.getRole()}/dashboard`);
+      // If role was specified from home page, validate it matches
+      if (role && role !== userRole) {
+        toast.error(
+          `This account is registered as ${userRole}. Redirecting to ${userRole} dashboard.`,
+          { duration: 4000 }
+        );
       }
+
+      // Use replace to avoid back button issues
+      window.location.href = `/dashboard/${userRole}`;
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : "Login failed. Please check your credentials.";
       toast.error(message);
-    } finally {
       setIsLoading(false);
     }
   };

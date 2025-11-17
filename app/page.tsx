@@ -3,7 +3,7 @@ import { ShoppingBag, Store, Package, Truck } from "lucide-react";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <main className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
       {/* Hero Section */}
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center max-w-4xl mx-auto">

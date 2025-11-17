@@ -1,0 +1,86 @@
+Clean dashboard layout
+Use a left vertical sidebar for navigation and a top bar for page-specific actions.
+This creates a consistent mental model and reduces UI complexity.
+The main content area stays uncluttered, perfect for data views, forms, or workflow screens.
+Keep the sidebar minimal with only icons and short labels.
+
+Card based content structure
+Break each functional block into a card.
+Cards allow modular growth of the UI and make the interface look structured even if features expand later.
+Each card contains one job: data summary, form input, action buttons, or visual status.
+
+Context-driven modals
+Avoid multi-page forms.
+Use small modals for quick actions like editing, adding entries, or confirmations.
+This saves time both for users and for you when building the app.
+
+State-aware components
+Add small cues like badge counts, color indicators, and disabled states that show system status.
+Helps make the app feel alive without complex animation work.
+
+Notification zone
+Simple toast notifications reinforce clarity when actions succeed or fail.
+Make them color coded using a predictable palette.
+
+Multi step workflows with breadcrumb style header
+For any operation involving 2 or more steps, stack views under a breadcrumb.
+This avoids user confusion, especially in management dashboards or approvals.
+
+Mobile responsive grid
+Use a 12 column grid that collapses gracefully.
+Cards become full width on mobile.
+Navigation collapses into a top hamburger.
+Focus on vertical stacking on small screens.
+
+Practical color theme
+Pick a restrained 2 color palette plus neutrals.
+One primary color for interactions.
+One accent color for alerts or highlights.
+Keep backgrounds neutral so content stands out.
+
+Icon consistency
+Use a single library like Lucide or Material Icons so nothing looks mismatched.
+Restrict to a small set and repeat them so the UI looks coherent.
+
+Reusable components
+Design small pieces that you can reuse everywhere.
+Input field
+Section heading
+Card
+Modal
+Toast
+Button
+Table row
+This will cut your frontend development time in half.
+
+Authentication screens
+Keep auth screens extremely simple.
+Centered card layout
+Two inputs
+One button
+Small subtitles
+A minimal brand logo
+Do not overdesign sign in or sign up.
+
+Data heavy pages
+For tables, provide three utilities:
+Search
+Sort
+Filter
+Add a small toolbar to the top right of the table instead of scattering controls.
+Allow row selection for bulk actions.
+
+Focus on readability
+Use a large base font and comfortable spacing.
+This increases perceived polish without any complexity.
+Typography should feel similar to Stripe or Linear.
+
+Loading states and skeletons
+Use skeletons for long fetches.
+Make animation subtle and clean.
+It gives the UX a feel of speed even if the backend is slow initially.
+
+Error boundary screen
+Have a clean global error page.
+Use a simple icon, a short message, and a reset button.
+Users trust apps more when even errors look intentional.
