@@ -5,6 +5,8 @@ import { Wholesaler } from "@/lib/models/Wholesaler";
 import { DeliveryPerson } from "@/lib/models/DeliveryPerson";
 import { User } from "@/lib/models/User";
 
+
+
 export type UserRole = "customer" | "retailer" | "wholesaler" | "delivery";
 
 export interface RegisterData {
@@ -181,11 +183,13 @@ export class AuthService {
   /**
    * Login with Facebook OAuth
    */
+  // --- Facebook OAuth FIXED (added scopes) ---
   static async loginWithFacebook() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "facebook",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: "email", // required so user email is returned
       },
     });
 
@@ -193,12 +197,17 @@ export class AuthService {
     return data;
   }
 
+
   /**
    * Send OTP to phone number
    */
+  // --- Phone OTP FIXED (added channel: "sms") ---
   static async sendOTP(phone: string) {
     const { data, error } = await supabase.auth.signInWithOtp({
       phone,
+      options: {
+        channel: "sms", // supabase requires this for phone OTP
+      },
     });
 
     if (error) throw error;

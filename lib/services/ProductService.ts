@@ -502,3 +502,18 @@ export class ProductService {
     return { products, count: count || 0 };
   }
 }
+
+export const ProductServiceClient = {
+  list: async (params?: Record<string, any>): Promise<Product[]> => {
+    const q = params ? "?" + new URLSearchParams(params).toString() : "";
+    const res = await fetch(`/api/products${q}`);
+    if (!res.ok) throw new Error("Failed to load products");
+    return res.json();
+  },
+
+  get: async (id: string): Promise<Product> => {
+    const res = await fetch(`/api/products/${id}`);
+    if (!res.ok) throw new Error("Failed to load product");
+    return res.json();
+  },
+};

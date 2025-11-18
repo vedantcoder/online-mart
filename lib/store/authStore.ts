@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { User } from "@/lib/models/User";
 import { AuthService, RegisterData } from "@/lib/services/AuthService";
+import { useCartStore } from "@/lib/store/cartStore";
 
 interface AuthState {
   user: User | null;
@@ -37,6 +38,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // fetch customer cart when user is a customer
+      if (user?.role === "customer") {
+        useCartStore.getState().fetchCart(user.id).catch(() => {});
+      }
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -52,6 +57,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // fetch customer cart when user is a customer
+      if (user?.role === "customer") {
+        useCartStore.getState().fetchCart(user.id).catch(() => {});
+      }
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -93,6 +102,10 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        // fetch customer cart when user is a customer
+        if (user?.role === "customer") {
+          useCartStore.getState().fetchCart(user.id).catch(() => {});
+        }
       } else {
         set({
           user: null,

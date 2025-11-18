@@ -14,15 +14,16 @@ export interface Category {
 export interface Product {
   id: string;
   name: string;
-  description?: string | null;
-  category_id?: string | null;
-  sku?: string | null;
-  base_price?: number | null;
-  unit: string;
-  specifications: Record<string, string | number | boolean>;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  description?: string;
+  category_id?: string;
+  sku?: string;
+  base_price?: number;
+  unit?: string;
+  specifications?: Record<string, any>;
+  images?: string[];
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
 
   // Relations
   category?: Category;
