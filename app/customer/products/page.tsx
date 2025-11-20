@@ -435,39 +435,46 @@ export default function CustomerProducts() {
                           key={product.id}
                           className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all overflow-hidden"
                         >
-                          {/* Product Image */}
-                          <div className="relative aspect-square bg-gray-100">
-                            {product.images && product.images.length > 0 ? (
-                              <Image
-                                src={
-                                  product.images.find(
-                                    (img: any) => img.is_primary
-                                  )?.image_url || product.images[0].image_url
-                                }
-                                alt={product.name || "Product"}
-                                fill
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Package size={48} className="text-gray-300" />
-                              </div>
-                            )}
-                            {inv.mrp && inv.mrp > inv.price && (
-                              <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-                                {Math.round(
-                                  ((inv.mrp - inv.price) / inv.mrp) * 100
-                                )}
-                                % OFF
-                              </div>
-                            )}
-                          </div>
+                          {/* Product Image - Clickable */}
+                          <Link href={`/customer/products/${product.id}`}>
+                            <div className="relative aspect-square bg-gray-100 cursor-pointer">
+                              {product.images && product.images.length > 0 ? (
+                                <Image
+                                  src={
+                                    product.images.find(
+                                      (img: any) => img.is_primary
+                                    )?.image_url || product.images[0].image_url
+                                  }
+                                  alt={product.name || "Product"}
+                                  fill
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Package
+                                    size={48}
+                                    className="text-gray-300"
+                                  />
+                                </div>
+                              )}
+                              {inv.mrp && inv.mrp > inv.price && (
+                                <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+                                  {Math.round(
+                                    ((inv.mrp - inv.price) / inv.mrp) * 100
+                                  )}
+                                  % OFF
+                                </div>
+                              )}
+                            </div>
+                          </Link>
 
                           {/* Product Info */}
                           <div className="p-4">
-                            <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-2 h-10">
-                              {product.name}
-                            </h3>
+                            <Link href={`/customer/products/${product.id}`}>
+                              <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-2 h-10 cursor-pointer hover:text-orange-600 transition">
+                                {product.name}
+                              </h3>
+                            </Link>
 
                             <div className="flex items-center gap-1 mb-2">
                               {[1, 2, 3, 4].map((i) => (
