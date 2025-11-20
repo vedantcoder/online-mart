@@ -3,12 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
-import { Customer } from "@/lib/models/Customer";
 import { Home, ShoppingCart, Heart, Package, LogOut, User } from "lucide-react";
-
+import { useRoleValidation } from "@/hooks/useRoleValidation";
+import Link from "next/link";
 export default function CustomerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  useRoleValidation(); // Validate role and show toast if mismatch
 
   useEffect(() => {
     if (!user || user.getRole() !== "customer") {
@@ -24,12 +25,10 @@ export default function CustomerDashboard() {
   if (!user || user.getRole() !== "customer") {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        Loading...
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
-
-  const customer = user as Customer;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -41,42 +40,49 @@ export default function CustomerDashboard() {
         </div>
 
         <nav className="px-4 space-y-2">
-          <a
-            href="#"
+
+          <Link
+            href="/customer/dashboard"
             className="flex items-center px-4 py-3 text-blue-600 bg-blue-50 rounded-lg"
           >
             <Home size={20} className="mr-3" />
             Dashboard
-          </a>
-          <a
-            href="#"
+          </Link>
+
+          <Link
+            href="/customer/cart"
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <ShoppingCart size={20} className="mr-3" />
             My Cart
-          </a>
-          <a
-            href="#"
+          </Link>
+
+          <Link
+            href="/customer/orders"
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <Package size={20} className="mr-3" />
             My Orders
-          </a>
-          <a
-            href="#"
+          </Link>
+
+          <Link
+            href="/customer/wishlist"
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <Heart size={20} className="mr-3" />
             Wishlist
-          </a>
-          <a
-            href="#"
+          </Link>
+
+          <Link
+            href="/customer/profile"
             className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <User size={20} className="mr-3" />
             Profile
-          </a>
+          </Link>
+
         </nav>
+
 
         <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
           <button
@@ -93,7 +99,7 @@ export default function CustomerDashboard() {
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">
-            Welcome back, {customer.getFullName()}!
+            Welcome back, {user.getFullName() || "Customer"}!
           </h2>
           <p className="text-gray-600 mt-1">
             Here&apos;s what&apos;s happening with your account today.
@@ -140,6 +146,30 @@ export default function CustomerDashboard() {
               </div>
               <Package size={32} className="text-purple-600" />
             </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <ShoppingCart size={24} className="text-blue-600 mb-2" />
+              <p className="font-medium text-gray-900">Browse Products</p>
+              <p className="text-sm text-gray-600">Shop from local retailers</p>
+            </button>
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Package size={24} className="text-green-600 mb-2" />
+              <p className="font-medium text-gray-900">Track Order</p>
+              <p className="text-sm text-gray-600">Check order status</p>
+            </button>
+            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+              <Heart size={24} className="text-red-600 mb-2" />
+              <p className="font-medium text-gray-900">View Wishlist</p>
+              <p className="text-sm text-gray-600">See saved items</p>
+            </button>
           </div>
         </div>
 
