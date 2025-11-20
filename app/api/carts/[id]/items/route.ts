@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request, context: { params: { id: string } }) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const cartId = context.params.id;
     const body = await req.json();
 
@@ -16,7 +16,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
         product_id,
         seller_id,
         quantity,
-        price_at_addition
+        price_at_addition,
       })
       .select()
       .single();
@@ -29,9 +29,12 @@ export async function POST(req: Request, context: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(req: Request, context: { params: { id: string } }) {
+export async function DELETE(
+  req: Request,
+  context: { params: { id: string } }
+) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const cartId = context.params.id;
 
     const { error } = await supabase

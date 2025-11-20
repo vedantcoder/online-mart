@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -13,7 +13,16 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const role = searchParams.get("role");
 
-  const { login } = useAuthStore();
+  // Only allow valid roles
+  const validRoles = ["customer", "retailer", "wholesaler", "delivery"];
+
+  useEffect(() => {
+    if (!role || !validRoles.includes(role)) {
+      router.replace("/");
+    }
+  }, [role, router]);
+
+  const { login, refreshUser } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,19 +30,18 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSocialLogin = async (provider: "google" | "facebook") => {
-  try {
-    if (provider === "google") {
-      await loginWithGoogle();
-    } else {
-      await loginWithFacebook();
+    try {
+      if (provider === "google") {
+        await loginWithGoogle();
+      } else {
+        await loginWithFacebook();
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Social login failed";
+      toast.error(message);
     }
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Social login failed";
-    toast.error(message);
-  }
-};
-
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +58,17 @@ export default function LoginPage() {
       toast.success("Login successful!");
 
       // Get user role and redirect to appropriate dashboard
-      const { user } = useAuthStore.getState();
+      let { user } = useAuthStore.getState();
+      if (!user) {
+        // Try to fetch user from session if not immediately available
+        await refreshUser();
+        user = useAuthStore.getState().user;
+      }
       if (user) {
-        router.push(`/${user.getRole()}/dashboard`);
+        router.replace(`/${user.getRole()}/dashboard`);
+      } else {
+        // If for some reason user is not set, redirect to home
+        router.replace("/");
       }
     } catch (error: unknown) {
       const message =
@@ -60,6 +76,7 @@ export default function LoginPage() {
           ? error.message
           : "Login failed. Please check your credentials.";
       toast.error(message);
+      router.replace("/");
     } finally {
       setIsLoading(false);
     }

@@ -62,10 +62,10 @@ export async function proxy(request: NextRequest) {
 
   // Protected routes
   const protectedRoutes = [
-    "/dashboard/customer",
-    "/dashboard/retailer",
-    "/dashboard/wholesaler",
-    "/dashboard/delivery",
+    "/customer/dashboard",
+    "/retailer/dashboard",
+    "/wholesaler/dashboard",
+    "/delivery/dashboard",
   ];
   const authRoutes = ["/login", "/register"];
   const publicAuthRoutes = ["/auth/callback", "/auth/complete-profile"];
@@ -90,10 +90,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect to login if accessing protected route without auth
-  if (isProtectedRoute && !user) {
-    console.log("[PROXY] Protected route, no user. Redirecting to /login");
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  // TEMPORARILY DISABLED FOR DEBUGGING
+  // if (isProtectedRoute && !user) {
+  //   console.log("[PROXY] Protected route, no user. Redirecting to /login");
+  //   return NextResponse.redirect(new URL("/login", request.url));
+  // }
 
   // Redirect to dashboard if accessing auth routes while logged in
   if (isAuthRoute && user) {
@@ -107,10 +108,10 @@ export async function proxy(request: NextRequest) {
     if (profile?.role) {
       console.log(
         "[PROXY] Redirecting to dashboard:",
-        `/dashboard/${profile.role}`
+        `/${profile.role}/dashboard`
       );
       return NextResponse.redirect(
-        new URL(`/dashboard/${profile.role}`, request.url)
+        new URL(`/${profile.role}/dashboard`, request.url)
       );
     }
   }

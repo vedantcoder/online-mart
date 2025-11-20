@@ -6,7 +6,7 @@ export async function PATCH(
   context: { params: { id: string; itemId: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const itemId = context.params.itemId;
 
     const body = await req.json();
@@ -30,7 +30,7 @@ export async function DELETE(
   context: { params: { id: string; itemId: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const itemId = context.params.itemId;
 
     const { error } = await supabase
