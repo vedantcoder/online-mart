@@ -74,6 +74,36 @@ export default function CompleteProfilePage() {
       return;
     }
 
+    // Validate role-specific fields
+    if (selectedRole === "customer") {
+      if (!address || !city || !state || !pincode) {
+        toast.error("Please fill in all address fields");
+        return;
+      }
+    } else if (selectedRole === "retailer") {
+      if (!shopName || !address || !city || !state || !pincode) {
+        toast.error("Please fill in all shop details");
+        return;
+      }
+    } else if (selectedRole === "wholesaler") {
+      if (
+        !businessName ||
+        !address ||
+        !city ||
+        !state ||
+        !pincode ||
+        !gstNumber
+      ) {
+        toast.error("Please fill in all business details");
+        return;
+      }
+    } else if (selectedRole === "delivery") {
+      if (!vehicleNumber || !licenseNumber) {
+        toast.error("Please fill in all vehicle details");
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {

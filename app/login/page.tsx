@@ -65,9 +65,12 @@ export default function LoginPage() {
         user = useAuthStore.getState().user;
       }
       if (user) {
-        router.replace(`/${user.getRole()}/dashboard`);
+        const role = user.getRole();
+        console.log("Redirecting to dashboard for role:", role);
+        router.replace(`/${role}/dashboard`);
       } else {
         // If for some reason user is not set, redirect to home
+        console.error("Login succeeded but user not found in store");
         router.replace("/");
       }
     } catch (error: unknown) {
@@ -76,7 +79,8 @@ export default function LoginPage() {
           ? error.message
           : "Login failed. Please check your credentials.";
       toast.error(message);
-      router.replace("/");
+      // Do not redirect to home on error, let user try again
+      // router.replace("/");
     } finally {
       setIsLoading(false);
     }

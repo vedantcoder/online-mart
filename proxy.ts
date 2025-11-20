@@ -60,49 +60,38 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
   console.log("[PROXY] user:", user?.id, "role:", user?.role);
 
-  // Protected routes
-  const protectedRoutes = [
-    "/customer/dashboard",
-    "/retailer/dashboard",
-    "/wholesaler/dashboard",
-    "/delivery/dashboard",
-  ];
-  const authRoutes = ["/login", "/register"];
-  const publicAuthRoutes = ["/auth/callback", "/auth/complete-profile"];
+  const path = request.nextUrl.pathname;
 
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
-  const isAuthRoute = authRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
-  const isPublicAuthRoute = publicAuthRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
-
-  // Allow public auth routes without redirection
-  if (isPublicAuthRoute) {
-    console.log(
-      "[PROXY] Public auth route, allowing:",
-      request.nextUrl.pathname
-    );
+  // Allow home page explicitly
+  if (path === "/") {
     return response;
   }
 
-  // Redirect to login if accessing protected route without auth
-  // TEMPORARILY DISABLED FOR DEBUGGING
-  // if (isProtectedRoute && !user) {
-  //   console.log("[PROXY] Protected route, no user. Redirecting to /login");
-  //   return NextResponse.redirect(new URL("/login", request.url));
-  // }
+  // Define public and auth routes
+  const authRoutes = ["/login", "/register"];
+  const publicRoutes = [
+    "/auth/callback",
+    "/auth/complete-profile",
+    ...authRoutes,
+  ];
 
-  // Redirect to dashboard if accessing auth routes while logged in
-  if (isAuthRoute && user) {
+  const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
+  const isPublicRoute = publicRoutes.some((route) => path.startsWith(route));
+
+  // 1. Protect all routes: If no user and not a public route, redirect to login
+  if (!user && !isPublicRoute) {
+    console.log("[PROXY] Protected route, no user. Redirecting to /login");
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // 2. Redirect authenticated users away from auth pages (login/register)
+  if (user && isAuthRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
+
     console.log("[PROXY] Auth route, user present. Profile:", profile);
 
     if (profile?.role) {
@@ -113,10 +102,17 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(
         new URL(`/${profile.role}/dashboard`, request.url)
       );
+    } else {
+      // Fallback if no role found (e.g. new user not fully set up)
+      // Maybe redirect to complete-profile or just let them be?
+      // For now, let's redirect to a generic dashboard or home if role is missing,
+      // or just allow them to proceed (which might be weird if they are on /login).
+      // If they are on /login and have no role, maybe they need to complete profile.
+      // But let's stick to the existing logic which redirects if role exists.
     }
   }
 
-  console.log("[PROXY] Allowing request to proceed:", request.nextUrl.pathname);
+  console.log("[PROXY] Allowing request to proceed:", path);
   return response;
 }
 

@@ -84,19 +84,15 @@ export default function ProductDetailPage() {
 
   const loadFeedbacks = async () => {
     try {
+      console.log("Fetching feedbacks for product:", productId);
+
       const { data, error } = await supabase
         .from("feedback")
         .select(
           `
-          id,
-          customer_id,
-          rating,
-          title,
-          comment,
-          is_verified_purchase,
-          created_at,
-          customers:customer_id (
-            users:user_id (
+          *,
+          customers (
+            profiles (
               full_name
             )
           )
@@ -105,11 +101,16 @@ export default function ProductDetailPage() {
         .eq("product_id", productId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching feedbacks:", error);
+        throw error;
+      }
+
+      console.log("Raw feedback data:", data);
 
       const formattedFeedbacks = data.map((fb: any) => ({
         ...fb,
-        customer_name: fb.customers?.users?.full_name || "Anonymous",
+        customer_name: fb.customers?.profiles?.full_name || "Anonymous",
       }));
 
       setFeedbacks(formattedFeedbacks);
@@ -159,7 +160,7 @@ export default function ProductDetailPage() {
       const { data: customerData } = await supabase
         .from("customers")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("id", user.id)
         .single();
 
       if (!customerData) {

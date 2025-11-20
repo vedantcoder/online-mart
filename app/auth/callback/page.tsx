@@ -35,10 +35,19 @@ export default function AuthCallback() {
         router.replace(`/${user.getRole()}/dashboard`);
       } catch (error: any) {
         // If getting the user fails, it's likely a new user without a profile.
-        // The most common error here is "Profile not found".
+        // The most common error here is "Profile not found" or a database error when fetching role data.
         console.log("Callback error, assuming new user:", error.message);
-        if (error.message.includes("Profile not found")) {
-          // This is a new registration via OAuth
+
+        // Check for specific errors that indicate incomplete profile
+        const isIncompleteProfile =
+          error.message.includes("Profile not found") ||
+          error.message.includes(
+            "JSON object requested, multiple (or no) rows returned"
+          ) ||
+          error.code === "PGRST116";
+
+        if (isIncompleteProfile) {
+          // This is a new registration via OAuth or incomplete profile
           router.replace("/auth/complete-profile");
         } else {
           // Another unexpected error occurred

@@ -129,8 +129,8 @@ export default function CustomerDashboard() {
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="text-sm text-gray-600">Hello,</p>
                     <p className="font-medium text-gray-900">
-                      {user?.full_name ||
-                        user?.email?.split("@")[0] ||
+                      {user?.getFullName() ||
+                        user?.getEmail()?.split("@")[0] ||
                         "Customer"}
                     </p>
                   </div>
@@ -172,8 +172,10 @@ export default function CustomerDashboard() {
             <div>
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Welcome,{" "}
-                {user?.full_name || user?.email?.split("@")[0] || "Customer"}!
-                👋
+                {user?.getFullName() ||
+                  user?.getEmail()?.split("@")[0] ||
+                  "Customer"}
+                ! 👋
               </h1>
               <p className="text-xl text-orange-100 mb-6">
                 Discover amazing products at unbeatable prices
