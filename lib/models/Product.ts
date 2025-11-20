@@ -14,16 +14,15 @@ export interface Category {
 export interface Product {
   id: string;
   name: string;
-  description?: string;
-  category_id?: string;
-  sku?: string;
-  base_price?: number;
-  unit?: string;
-  specifications?: Record<string, any>;
-  images?: string[];
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  description?: string | null;
+  category_id?: string | null;
+  sku?: string | null;
+  base_price?: number | null;
+  unit: string;
+  specifications?: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 
   // Relations
   category?: Category;
@@ -66,7 +65,7 @@ export class ProductModel implements Product {
   sku?: string | null;
   base_price?: number | null;
   unit: string;
-  specifications: Record<string, string | number | boolean>;
+  specifications: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -78,13 +77,13 @@ export class ProductModel implements Product {
   constructor(data: Product) {
     this.id = data.id;
     this.name = data.name;
-    this.description = data.description;
-    this.category_id = data.category_id;
-    this.sku = data.sku;
-    this.base_price = data.base_price;
+    this.description = data.description ?? null;
+    this.category_id = data.category_id ?? null;
+    this.sku = data.sku ?? null;
+    this.base_price = data.base_price ?? null;
     this.unit = data.unit || "piece";
     this.specifications = data.specifications || {};
-    this.is_active = data.is_active;
+    this.is_active = data.is_active ?? true;
     this.created_at = data.created_at;
     this.updated_at = data.updated_at;
 

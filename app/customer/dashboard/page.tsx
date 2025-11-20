@@ -10,11 +10,16 @@ import {
   Package,
   User,
   ChevronDown,
+  TrendingUp,
+  Zap,
+  Gift,
+  Truck,
+  Shield,
+  CreditCard,
+  ArrowRight,
   Star,
-  Menu,
 } from "lucide-react";
 import { ProductService } from "@/lib/services/ProductService";
-import { Inventory } from "@/lib/models/Product";
 import Image from "next/image";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -23,13 +28,10 @@ export default function CustomerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
 
-  const [products, setProducts] = useState<Inventory[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Inventory[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -38,49 +40,29 @@ export default function CustomerDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
+      const categoriesData = await ProductService.getCategories();
       const { products: productsData } = await ProductService.searchProducts({
         in_stock_only: true,
-        limit: 50,
+        limit: 8,
       });
-      const categoriesData = await ProductService.getCategories();
 
-      // Convert to inventory format
-      const inventoryData = productsData.flatMap((p) => p.inventory || []);
-      setProducts(inventoryData);
-      setFilteredProducts(inventoryData);
       setCategories(categoriesData);
+      setFeaturedProducts(productsData);
     } catch (error) {
-      console.error("Failed to load products:", error);
-      toast.error("Failed to load products");
+      console.error("Failed to load data:", error);
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    filterProducts();
-  }, [searchQuery, selectedCategory, products]);
-
-  const filterProducts = () => {
-    let filtered = [...products];
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (inv) =>
-          inv.product?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.product?.description
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase())
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(
+        `/customer/products?search=${encodeURIComponent(searchQuery)}`
       );
     }
-
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(
-        (inv) => inv.product?.category_id === selectedCategory
-      );
-    }
-
-    setFilteredProducts(filtered);
   };
 
   const handleLogout = async () => {
@@ -94,7 +76,6 @@ export default function CustomerDashboard() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <Link
                 href="/customer/dashboard"
@@ -104,8 +85,7 @@ export default function CustomerDashboard() {
               </Link>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 max-w-2xl mx-8">
+            <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-8">
               <div className="relative">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -119,18 +99,14 @@ export default function CustomerDashboard() {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-gray-900"
                 />
               </div>
-            </div>
+            </form>
 
-            {/* Right Icons */}
             <div className="flex items-center space-x-6">
               <Link
                 href="/customer/wishlist"
                 className="relative hover:text-orange-600 transition"
               >
                 <Heart size={24} className="text-gray-700" />
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
-                </span>
               </Link>
 
               <Link
@@ -149,14 +125,15 @@ export default function CustomerDashboard() {
                   <ChevronDown size={16} className="text-gray-700" />
                 </button>
 
-                {/* Dropdown Menu */}
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                  <Link
-                    href="/customer/profile"
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    My Profile
-                  </Link>
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm text-gray-600">Hello,</p>
+                    <p className="font-medium text-gray-900">
+                      {user?.full_name ||
+                        user?.email?.split("@")[0] ||
+                        "Customer"}
+                    </p>
+                  </div>
                   <Link
                     href="/customer/orders"
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
@@ -169,6 +146,12 @@ export default function CustomerDashboard() {
                   >
                     Wishlist
                   </Link>
+                  <Link
+                    href="/customer/profile"
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    Profile
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
@@ -179,85 +162,168 @@ export default function CustomerDashboard() {
               </div>
             </div>
           </div>
-
-          {/* Categories Bar */}
-          <div className="border-t border-gray-200">
-            <div className="flex items-center space-x-6 py-3 overflow-x-auto">
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition ${
-                  selectedCategory === "all"
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                All Products
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition ${
-                    selectedCategory === cat.id
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-          </div>
-        ) : (
-          <>
-            {/* Results Count */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedCategory === "all"
-                  ? "All Products"
-                  : categories.find((c) => c.id === selectedCategory)?.name}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                {filteredProducts.length} products available
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                Welcome,{" "}
+                {user?.full_name || user?.email?.split("@")[0] || "Customer"}!
+                👋
+              </h1>
+              <p className="text-xl text-orange-100 mb-6">
+                Discover amazing products at unbeatable prices
               </p>
+              <Link
+                href="/customer/products"
+                className="inline-flex items-center gap-2 bg-white text-orange-600 px-8 py-3 rounded-lg font-semibold hover:bg-orange-50 transition"
+              >
+                Shop Now <ArrowRight size={20} />
+              </Link>
             </div>
-
-            {/* Products Grid */}
-            {filteredProducts.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No products found
-                </h3>
-                <p className="text-gray-500">
-                  Try adjusting your search or filters
-                </p>
+            <div className="hidden md:flex justify-center">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                  <TrendingUp size={32} className="mb-2" />
+                  <p className="font-semibold">Trending Products</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                  <Zap size={32} className="mb-2" />
+                  <p className="font-semibold">Flash Deals</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                  <Gift size={32} className="mb-2" />
+                  <p className="font-semibold">Special Offers</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                  <Package size={32} className="mb-2" />
+                  <p className="font-semibold">New Arrivals</p>
+                </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {filteredProducts.map((inv) => (
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-8 bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="flex items-center gap-3">
+              <Truck className="text-orange-600" size={32} />
+              <div>
+                <p className="font-semibold text-gray-900">Free Delivery</p>
+                <p className="text-sm text-gray-600">On orders above ₹500</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Shield className="text-orange-600" size={32} />
+              <div>
+                <p className="font-semibold text-gray-900">Secure Payments</p>
+                <p className="text-sm text-gray-600">100% protected</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-orange-600" size={32} />
+              <div>
+                <p className="font-semibold text-gray-900">Easy Returns</p>
+                <p className="text-sm text-gray-600">7 days return policy</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Package className="text-orange-600" size={32} />
+              <div>
+                <p className="font-semibold text-gray-900">Quality Products</p>
+                <p className="text-sm text-gray-600">Verified sellers</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Shop by Category */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Shop by Category
+            </h2>
+            <Link
+              href="/customer/products"
+              className="text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+            >
+              View All <ArrowRight size={18} />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`/customer/products?category=${cat.id}`}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all p-6 text-center group"
+                >
+                  <div className="w-16 h-16 mx-auto mb-3 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition">
+                    <Package size={32} className="text-orange-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition">
+                    {cat.name}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Featured Products */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Featured Products
+            </h2>
+            <Link
+              href="/customer/products"
+              className="text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+            >
+              View All <ArrowRight size={18} />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {featuredProducts.slice(0, 8).map((product) => {
+                const inventory = product.inventory?.[0];
+                if (!inventory) return null;
+
+                return (
                   <Link
-                    key={inv.id}
-                    href={`/products/${inv.product?.id}`}
+                    key={product.id}
+                    href="/customer/products"
                     className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all overflow-hidden group"
                   >
-                    {/* Product Image */}
                     <div className="relative aspect-square bg-gray-100">
-                      {inv.product?.images && inv.product.images.length > 0 ? (
+                      {product.images && product.images.length > 0 ? (
                         <Image
                           src={
-                            inv.product.images.find((img) => img.is_primary)
-                              ?.image_url || inv.product.images[0].image_url
+                            product.images.find((img: any) => img.is_primary)
+                              ?.image_url || product.images[0].image_url
                           }
-                          alt={inv.product.name || "Product"}
+                          alt={product.name}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -266,20 +332,22 @@ export default function CustomerDashboard() {
                           <Package size={48} className="text-gray-300" />
                         </div>
                       )}
-                      {inv.mrp && inv.mrp > inv.price && (
+                      {inventory.mrp && inventory.mrp > inventory.price && (
                         <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-                          {Math.round(((inv.mrp - inv.price) / inv.mrp) * 100)}%
-                          OFF
+                          {Math.round(
+                            ((inventory.mrp - inventory.price) /
+                              inventory.mrp) *
+                              100
+                          )}
+                          % OFF
                         </div>
                       )}
                     </div>
 
-                    {/* Product Info */}
-                    <div className="p-3">
-                      <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-1 group-hover:text-orange-600 transition">
-                        {inv.product?.name}
+                    <div className="p-4">
+                      <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-2">
+                        {product.name}
                       </h3>
-
                       <div className="flex items-center gap-1 mb-2">
                         {[1, 2, 3, 4].map((i) => (
                           <Star
@@ -289,39 +357,25 @@ export default function CustomerDashboard() {
                           />
                         ))}
                         <Star size={12} className="text-gray-300" />
-                        <span className="text-xs text-gray-500 ml-1">
-                          (4.0)
-                        </span>
                       </div>
-
                       <div className="flex items-baseline gap-2">
                         <span className="text-lg font-bold text-gray-900">
-                          ₹{inv.price.toLocaleString("en-IN")}
+                          ₹{inventory.price.toLocaleString("en-IN")}
                         </span>
-                        {inv.mrp && inv.mrp > inv.price && (
+                        {inventory.mrp && inventory.mrp > inventory.price && (
                           <span className="text-xs text-gray-500 line-through">
-                            ₹{inv.mrp.toLocaleString("en-IN")}
+                            ₹{inventory.mrp.toLocaleString("en-IN")}
                           </span>
                         )}
                       </div>
-
-                      {inv.quantity > 0 ? (
-                        <span className="text-xs text-green-600 font-medium mt-1 block">
-                          In Stock
-                        </span>
-                      ) : (
-                        <span className="text-xs text-red-600 font-medium mt-1 block">
-                          Out of Stock
-                        </span>
-                      )}
                     </div>
                   </Link>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </main>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
