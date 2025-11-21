@@ -41,48 +41,57 @@ export default function RetailerDashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200">
+      <aside className="w-64 bg-white border-r border-gray-200 relative">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-900">Online-MART</h1>
           <p className="text-sm text-gray-600 mt-1">Retailer Portal</p>
         </div>
 
         <nav className="px-4 space-y-2">
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-green-600 bg-green-50 rounded-lg"
+          <button
+            type="button"
+            onClick={() => router.push("/retailer/dashboard")}
+            className="flex items-center w-full text-left px-4 py-3 text-green-600 bg-green-50 rounded-lg"
           >
             <Home size={20} className="mr-3" />
             Dashboard
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/retailer/inventory")}
+            className="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <Package size={20} className="mr-3" />
             Inventory
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/retailer/orders")}
+            className="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <ShoppingBag size={20} className="mr-3" />
             Orders
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/retailer/wholesalers")}
+            className="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <Users size={20} className="mr-3" />
             Wholesalers
-          </a>
-          <a
-            href="#"
-            className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/retailer/analytics")}
+            className="flex items-center w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg"
           >
             <TrendingUp size={20} className="mr-3" />
             Analytics
-          </a>
+          </button>
         </nav>
 
         <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
@@ -156,17 +165,31 @@ export default function RetailerDashboard() {
             Quick Actions
           </h3>
           <div className="grid grid-cols-3 gap-4">
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+            <button
+              type="button"
+              onClick={() => router.push("/retailer/inventory/add")}
+              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+            >
               <Package size={24} className="text-green-600 mb-2" />
               <p className="font-medium text-gray-900">Add Product</p>
               <p className="text-sm text-gray-600">Add new item to inventory</p>
             </button>
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+
+            <button
+              type="button"
+              onClick={() => router.push("/retailer/orders")}
+              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+            >
               <ShoppingBag size={24} className="text-blue-600 mb-2" />
               <p className="font-medium text-gray-900">View Orders</p>
               <p className="text-sm text-gray-600">Check customer orders</p>
             </button>
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
+
+            <button
+              type="button"
+              onClick={() => router.push("/retailer/wholesalers")}
+              className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left"
+            >
               <Users size={24} className="text-purple-600 mb-2" />
               <p className="font-medium text-gray-900">Find Wholesalers</p>
               <p className="text-sm text-gray-600">
