@@ -3,11 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function PATCH(
   req: Request,
-  context: { params: { id: string; itemId: string } }
+  context: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const itemId = context.params.itemId;
+    const { itemId } = await context.params;
 
     const body = await req.json();
     const { quantity } = body;
@@ -27,11 +27,11 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  context: { params: { id: string; itemId: string } }
+  context: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const itemId = context.params.itemId;
+    const { itemId } = await context.params;
 
     const { error } = await supabase
       .from("cart_items")

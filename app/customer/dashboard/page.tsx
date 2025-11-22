@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useCartStore } from "@/lib/store/cartStore";
 import {
   Search,
   ShoppingCart,
@@ -27,6 +28,7 @@ import toast from "react-hot-toast";
 export default function CustomerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { cart, fetchCart } = useCartStore();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
@@ -36,6 +38,12 @@ export default function CustomerDashboard() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCart(user.id);
+    }
+  }, [user?.id, fetchCart]);
 
   const loadData = async () => {
     try {
@@ -68,6 +76,10 @@ export default function CustomerDashboard() {
   const handleLogout = async () => {
     await logout();
     router.push("/");
+  };
+
+  const getTotalCartItems = (): number => {
+    return cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   };
 
   return (
@@ -115,7 +127,7 @@ export default function CustomerDashboard() {
               >
                 <ShoppingCart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
+                  {getTotalCartItems()}
                 </span>
               </Link>
 

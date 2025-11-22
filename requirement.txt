@@ -222,3 +222,5 @@ Stock unavailability.
 Payment failure.
 
 proper api usage for payment maps etc etc
+
+set NODE_TLS_REJECT_UNAUTHORIZED=0 && npm run dev

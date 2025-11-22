@@ -266,7 +266,7 @@ CREATE TABLE public.products (
   CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
 CREATE TABLE public.profiles (
-  id uuid NOT NULL,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   phone text,
   full_name text,

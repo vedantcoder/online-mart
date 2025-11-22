@@ -28,6 +28,8 @@ export interface Product {
   category?: Category;
   images?: ProductImage[];
   inventory?: Inventory[];
+  average_rating?: number;
+  review_count?: number;
 }
 
 export interface ProductImage {
@@ -73,6 +75,8 @@ export class ProductModel implements Product {
   category?: Category;
   images?: ProductImage[];
   inventory?: Inventory[];
+  average_rating: number;
+  review_count: number;
 
   constructor(data: Product) {
     this.id = data.id;
@@ -90,6 +94,8 @@ export class ProductModel implements Product {
     this.category = data.category;
     this.images = data.images;
     this.inventory = data.inventory;
+    this.average_rating = data.average_rating || 0;
+    this.review_count = data.review_count || 0;
   }
 
   // Get primary image

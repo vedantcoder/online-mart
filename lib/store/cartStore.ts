@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Cart } from "@/lib/models/Cart";
 import { CartService } from "@/lib/services/CartService";
+import { ProductService } from "@/lib/services/ProductService";
 
 interface CartState {
   cart: Cart | null;
@@ -23,7 +24,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     try {
       let cart = await CartService.getCart(customerId);
       if (!cart) cart = await CartService.createCart(customerId);
-      set({ cart, isLoading: false });
+      // Enrich cart items with product details (images, inventory) for UI rendering
+      const enrichedItems = await Promise.all(
+        cart.items.map(async (it) => {
+          try {
+            const product = await ProductService.getProductById(it.product_id);
+            return { ...it, product };
+          } catch {
+            return { ...it };
+          }
+        })
+      );
+      set({ cart: { ...cart, items: enrichedItems }, isLoading: false });
     } catch (err: any) {
       set({ error: err.message || "Failed to load cart", isLoading: false });
       throw err;
@@ -34,9 +46,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true });
     try {
       await CartService.addItem(cartId, item);
-      // refresh cart
-      const cart = await CartService.getCart(get().cart!.customer_id);
-      set({ cart, isLoading: false });
+      const raw = await CartService.getCart(get().cart!.customer_id);
+      const enrichedItems = await Promise.all(
+        raw!.items.map(async (it) => {
+          try {
+            const product = await ProductService.getProductById(it.product_id);
+            return { ...it, product };
+          } catch {
+            return { ...it };
+          }
+        })
+      );
+      set({ cart: { ...raw!, items: enrichedItems }, isLoading: false });
     } catch (err: any) {
       set({ isLoading: false, error: err.message });
       throw err;
@@ -47,8 +68,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true });
     try {
       await CartService.updateItem(cartId, itemId, qty);
-      const cart = await CartService.getCart(get().cart!.customer_id);
-      set({ cart, isLoading: false });
+      const raw = await CartService.getCart(get().cart!.customer_id);
+      const enrichedItems = await Promise.all(
+        raw!.items.map(async (it) => {
+          try {
+            const product = await ProductService.getProductById(it.product_id);
+            return { ...it, product };
+          } catch {
+            return { ...it };
+          }
+        })
+      );
+      set({ cart: { ...raw!, items: enrichedItems }, isLoading: false });
     } catch (err: any) {
       set({ isLoading: false, error: err.message });
       throw err;
@@ -59,8 +90,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true });
     try {
       await CartService.removeItem(cartId, itemId);
-      const cart = await CartService.getCart(get().cart!.customer_id);
-      set({ cart, isLoading: false });
+      const raw = await CartService.getCart(get().cart!.customer_id);
+      const enrichedItems = await Promise.all(
+        raw!.items.map(async (it) => {
+          try {
+            const product = await ProductService.getProductById(it.product_id);
+            return { ...it, product };
+          } catch {
+            return { ...it };
+          }
+        })
+      );
+      set({ cart: { ...raw!, items: enrichedItems }, isLoading: false });
     } catch (err: any) {
       set({ isLoading: false, error: err.message });
       throw err;
@@ -71,8 +112,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true });
     try {
       await CartService.clearCart(cartId);
-      const cart = await CartService.getCart(get().cart!.customer_id);
-      set({ cart, isLoading: false });
+      const raw = await CartService.getCart(get().cart!.customer_id);
+      const enrichedItems = await Promise.all(
+        raw!.items.map(async (it) => {
+          try {
+            const product = await ProductService.getProductById(it.product_id);
+            return { ...it, product };
+          } catch {
+            return { ...it };
+          }
+        })
+      );
+      set({ cart: { ...raw!, items: enrichedItems }, isLoading: false });
     } catch (err: any) {
       set({ isLoading: false, error: err.message });
       throw err;

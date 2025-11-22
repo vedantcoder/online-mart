@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useCartStore } from "@/lib/store/cartStore";
+import { useWishlistStore } from "@/lib/store/wishlistStore";
 import {
   Search,
   ShoppingCart,
@@ -34,6 +36,14 @@ export default function CustomerProducts() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout } = useAuthStore();
+  const { cart, fetchCart, addItem, updateItem, removeItem } = useCartStore();
+  const {
+    items: wishlistItems,
+    fetchWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+  } = useWishlistStore();
 
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -43,11 +53,20 @@ export default function CustomerProducts() {
   const [selectedCategory, setSelectedCategory] = useState<string>(
     searchParams.get("category") || "all"
   );
-  const [cart, setCart] = useState<Map<string, CartItem>>(new Map());
+  // const [cart, setCart] = useState<Map<string, CartItem>>(new Map()); // Removed local cart state
   const [priceRange, setPriceRange] = useState<
-    "all" | "under500" | "500-1000" | "1000-5000" | "above5000"
+    "all" | "under500" | "500-1000" | "1000-5000" | "above5000" | "custom"
   >("all");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCart(user.id);
+      fetchWishlist(user.id);
+    }
+  }, [user?.id, fetchCart, fetchWishlist]);
 
   useEffect(() => {
     loadData();
@@ -92,7 +111,7 @@ export default function CustomerProducts() {
 
   useEffect(() => {
     filterProducts();
-  }, [searchQuery, selectedCategory, priceRange, products]);
+  }, [searchQuery, selectedCategory, priceRange, products, minPrice, maxPrice]);
 
   const filterProducts = () => {
     let filtered = [...products];
@@ -120,6 +139,10 @@ export default function CustomerProducts() {
           return price >= 1000 && price < 5000;
         } else if (priceRange === "above5000") {
           return price >= 5000;
+        } else if (priceRange === "custom") {
+          const min = minPrice ? parseFloat(minPrice) : 0;
+          const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+          return price >= min && price <= max;
         }
         return true;
       });
@@ -128,61 +151,97 @@ export default function CustomerProducts() {
     setFilteredProducts(filtered);
   };
 
-  const addToCart = (product: any) => {
+  // Update custom range when inputs change
+  useEffect(() => {
+    if (minPrice || maxPrice) {
+      setPriceRange("custom");
+    }
+  }, [minPrice, maxPrice]);
+
+  const addToCart = async (product: any) => {
+    if (!user) {
+      toast.error("Please login to add items to cart");
+      router.push("/auth/login");
+      return;
+    }
+
     if (!product.inventory || product.inventory.length === 0) return;
 
     const inv = product.inventory[0]; // Use first available inventory
-    const newCart = new Map(cart);
-    const existing = newCart.get(inv.id);
 
-    if (existing) {
-      if (existing.quantity < inv.quantity) {
-        existing.quantity += 1;
-        newCart.set(inv.id, existing);
-        toast.success(`Added another ${product.name}`);
+    // Check if item is already in cart
+    const existingItem = cart?.items.find(
+      (item) => item.product_id === product.id
+    );
+
+    try {
+      if (existingItem) {
+        if (existingItem.quantity < inv.quantity) {
+          await updateItem(
+            cart!.id,
+            existingItem.id,
+            existingItem.quantity + 1
+          );
+          toast.success(`Added another ${product.name}`);
+        } else {
+          toast.error("Cannot add more than available stock");
+        }
       } else {
-        toast.error("Cannot add more than available stock");
-      }
-    } else {
-      newCart.set(inv.id, {
-        inventoryId: inv.id,
-        productId: product.id,
-        productName: product.name,
-        price: inv.price,
-        quantity: 1,
-        image: product.images?.[0]?.image_url,
-      });
-      toast.success(`Added ${product.name} to cart`);
-    }
+        if (!cart) {
+          // If cart doesn't exist, fetchCart should have created it or we need to handle it.
+          // But fetchCart is called on mount.
+          // If it's still null, maybe we should wait or retry.
+          // For now assume cart exists if user is logged in and fetchCart finished.
+          // Actually fetchCart creates one if not found.
+          await fetchCart(user.id);
+        }
 
-    setCart(newCart);
+        // We need the cart ID. If cart is null, we can't add.
+        // But fetchCart ensures cart is set.
+        if (cart) {
+          await addItem(cart.id, {
+            product_id: product.id,
+            quantity: 1,
+            price_at_addition: inv.price,
+            seller_id: inv.owner_id, // Use inventory owner as seller
+          });
+          toast.success(`Added ${product.name} to cart`);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update cart");
+    }
   };
 
-  const removeFromCart = (inventoryId: string) => {
-    const newCart = new Map(cart);
-    const existing = newCart.get(inventoryId);
+  const removeFromCart = async (productId: string) => {
+    if (!cart) return;
+    const existingItem = cart.items.find(
+      (item) => item.product_id === productId
+    );
 
-    if (existing) {
-      if (existing.quantity > 1) {
-        existing.quantity -= 1;
-        newCart.set(inventoryId, existing);
-      } else {
-        newCart.delete(inventoryId);
-        toast.success("Removed from cart");
+    if (existingItem) {
+      try {
+        if (existingItem.quantity > 1) {
+          await updateItem(cart.id, existingItem.id, existingItem.quantity - 1);
+        } else {
+          await removeItem(cart.id, existingItem.id);
+          toast.success("Removed from cart");
+        }
+      } catch (error) {
+        toast.error("Failed to update cart");
       }
-      setCart(newCart);
     }
   };
 
-  const getCartQuantity = (inventoryId: string): number => {
-    return cart.get(inventoryId)?.quantity || 0;
+  const getCartQuantity = (productId: string): number => {
+    return (
+      cart?.items.find((item) => item.product_id === productId)?.quantity || 0
+    );
   };
 
   const getTotalCartItems = (): number => {
-    return Array.from(cart.values()).reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
+    return cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   };
 
   const handleLogout = async () => {
@@ -228,7 +287,7 @@ export default function CustomerProducts() {
               >
                 <Heart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
+                  {wishlistItems.length}
                 </span>
               </Link>
 
@@ -314,7 +373,7 @@ export default function CustomerProducts() {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="ml-4 flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="ml-4 flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 lg:hidden"
               >
                 <Filter size={18} />
                 Filters
@@ -328,72 +387,115 @@ export default function CustomerProducts() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-6">
           {/* Sidebar Filters */}
-          {showFilters && (
-            <aside className="w-64 shrink-0">
-              <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Price Range
-                </h3>
-                <div className="space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="price"
-                      value="all"
-                      checked={priceRange === "all"}
-                      onChange={(e) => setPriceRange(e.target.value as any)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">All Prices</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="price"
-                      value="under500"
-                      checked={priceRange === "under500"}
-                      onChange={(e) => setPriceRange(e.target.value as any)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Under ₹500</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="price"
-                      value="500-1000"
-                      checked={priceRange === "500-1000"}
-                      onChange={(e) => setPriceRange(e.target.value as any)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">₹500 - ₹1,000</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="price"
-                      value="1000-5000"
-                      checked={priceRange === "1000-5000"}
-                      onChange={(e) => setPriceRange(e.target.value as any)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">₹1,000 - ₹5,000</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="price"
-                      value="above5000"
-                      checked={priceRange === "above5000"}
-                      onChange={(e) => setPriceRange(e.target.value as any)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Above ₹5,000</span>
-                  </label>
+          <aside
+            className={`w-64 shrink-0 ${
+              showFilters ? "block" : "hidden"
+            } lg:block`}
+          >
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+              <h3 className="font-semibold text-gray-900 mb-4">Price Range</h3>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="price"
+                    value="all"
+                    checked={priceRange === "all"}
+                    onChange={(e) => {
+                      setPriceRange("all");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-900">All Prices</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="price"
+                    value="under500"
+                    checked={priceRange === "under500"}
+                    onChange={(e) => {
+                      setPriceRange("under500");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-900">Under ₹500</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="price"
+                    value="500-1000"
+                    checked={priceRange === "500-1000"}
+                    onChange={(e) => {
+                      setPriceRange("500-1000");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-900">₹500 - ₹1,000</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="price"
+                    value="1000-5000"
+                    checked={priceRange === "1000-5000"}
+                    onChange={(e) => {
+                      setPriceRange("1000-5000");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-900">₹1,000 - ₹5,000</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="price"
+                    value="above5000"
+                    checked={priceRange === "above5000"}
+                    onChange={(e) => {
+                      setPriceRange("above5000");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-900">Above ₹5,000</span>
+                </label>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">
+                  Custom Range
+                </h4>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-orange-500 outline-none"
+                  />
                 </div>
               </div>
-            </aside>
-          )}
+            </div>
+          </aside>
 
           {/* Products Grid */}
           <div className="flex-1">
@@ -428,7 +530,7 @@ export default function CustomerProducts() {
                     {filteredProducts.map((product) => {
                       const inv = product.inventory?.[0]; // Get first available inventory
                       if (!inv) return null;
-                      const cartQty = getCartQuantity(inv.id);
+                      const cartQty = getCartQuantity(product.id);
 
                       return (
                         <div
@@ -465,6 +567,38 @@ export default function CustomerProducts() {
                                   % OFF
                                 </div>
                               )}
+                              {/* Wishlist Heart */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!user) {
+                                    toast.error(
+                                      "Please login to manage wishlist"
+                                    );
+                                    router.push("/auth/login");
+                                    return;
+                                  }
+                                  if (isInWishlist(product.id)) {
+                                    removeFromWishlist(user.id, product.id);
+                                    toast.success("Removed from wishlist");
+                                  } else {
+                                    addToWishlist(user.id, product.id);
+                                    toast.success("Added to wishlist");
+                                  }
+                                }}
+                                className="absolute top-2 right-2 p-2 rounded-full shadow bg-white/80 backdrop-blur hover:bg-white transition"
+                              >
+                                <Heart
+                                  size={18}
+                                  className={
+                                    isInWishlist(product.id)
+                                      ? "fill-red-500 text-red-500"
+                                      : "text-gray-600"
+                                  }
+                                />
+                              </button>
                             </div>
                           </Link>
 
@@ -476,18 +610,27 @@ export default function CustomerProducts() {
                               </h3>
                             </Link>
 
+                            {/* Dynamic Rating */}
                             <div className="flex items-center gap-1 mb-2">
-                              {[1, 2, 3, 4].map((i) => (
+                              {[1, 2, 3, 4, 5].map((i) => (
                                 <Star
                                   key={i}
-                                  size={12}
-                                  className="fill-yellow-400 text-yellow-400"
+                                  size={14}
+                                  className={
+                                    i <= Math.round(product.average_rating || 0)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
+                                  }
                                 />
                               ))}
-                              <Star size={12} className="text-gray-300" />
                               <span className="text-xs text-gray-500 ml-1">
-                                (4.0)
+                                {(product.average_rating || 0).toFixed(1)}
                               </span>
+                              {product.review_count > 0 && (
+                                <span className="text-[10px] text-gray-400 ml-1">
+                                  ({product.review_count})
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-baseline gap-2 mb-3">
@@ -505,7 +648,7 @@ export default function CustomerProducts() {
                             {cartQty > 0 ? (
                               <div className="flex items-center justify-between bg-orange-500 rounded-lg p-2">
                                 <button
-                                  onClick={() => removeFromCart(inv.id)}
+                                  onClick={() => removeFromCart(product.id)}
                                   className="text-white hover:bg-orange-600 rounded p-1 transition"
                                 >
                                   <Minus size={16} />

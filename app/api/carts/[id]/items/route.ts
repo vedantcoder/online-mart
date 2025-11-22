@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(req: Request, context: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const supabase = await createClient();
-    const cartId = context.params.id;
+    const { id: cartId } = await context.params;
     const body = await req.json();
 
     const { product_id, seller_id, quantity, price_at_addition } = body;
@@ -31,11 +34,11 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
 export async function DELETE(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const cartId = context.params.id;
+    const { id: cartId } = await context.params;
 
     const { error } = await supabase
       .from("cart_items")

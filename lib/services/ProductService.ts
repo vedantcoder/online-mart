@@ -472,7 +472,42 @@ export class ProductService {
 
     if (error) throw new Error(`Failed to search products: ${error.message}`);
 
-    let products = (data || []).map((p) => new ProductModel(p as Product));
+    // Fetch ratings
+    const productIds = data?.map((p) => p.id) || [];
+    const ratingsMap: Record<string, { avg: number; count: number }> = {};
+
+    if (productIds.length > 0) {
+      const { data: feedbackData } = await supabase
+        .from("feedback")
+        .select("product_id, rating")
+        .in("product_id", productIds);
+
+      if (feedbackData) {
+        const ratings: Record<string, number[]> = {};
+        feedbackData.forEach((fb: any) => {
+          if (!ratings[fb.product_id]) ratings[fb.product_id] = [];
+          ratings[fb.product_id].push(fb.rating);
+        });
+
+        Object.keys(ratings).forEach((pid) => {
+          const scores = ratings[pid];
+          const sum = scores.reduce((a, b) => a + b, 0);
+          ratingsMap[pid] = {
+            avg: Number((sum / scores.length).toFixed(1)),
+            count: scores.length,
+          };
+        });
+      }
+    }
+
+    let products = (data || []).map((p) => {
+      const ratingInfo = ratingsMap[p.id] || { avg: 0, count: 0 };
+      return new ProductModel({
+        ...(p as Product),
+        average_rating: ratingInfo.avg,
+        review_count: ratingInfo.count,
+      });
+    });
 
     // Post-processing filters (for inventory-related filters)
     if (params.seller_id) {

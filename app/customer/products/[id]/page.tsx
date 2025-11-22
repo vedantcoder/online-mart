@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
+import { useCartStore } from "@/lib/store/cartStore";
+import { useWishlistStore } from "@/lib/store/wishlistStore";
 import {
   Search,
   ShoppingCart,
@@ -39,10 +41,18 @@ export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id as string;
   const { user, logout } = useAuthStore();
+  const { cart, fetchCart, addItem, updateItem, removeItem } = useCartStore();
+  const {
+    items: wishlistItems,
+    fetchWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+  } = useWishlistStore();
 
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(0);
+  // const [quantity, setQuantity] = useState(0); // Removed local quantity state
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedbackData, setFeedbackData] = useState({
@@ -51,6 +61,13 @@ export default function ProductDetailPage() {
     comment: "",
   });
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCart(user.id);
+      fetchWishlist(user.id);
+    }
+  }, [user?.id, fetchCart, fetchWishlist]);
 
   useEffect(() => {
     loadProduct();
@@ -119,25 +136,76 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
+    if (!user) {
+      toast.error("Please login to add items to cart");
+      router.push("/auth/login");
+      return;
+    }
+
     if (!product.inventory || product.inventory.length === 0) {
       toast.error("Product not available");
       return;
     }
 
     const inv = product.inventory[0];
-    if (quantity < inv.quantity) {
-      setQuantity(quantity + 1);
-      toast.success("Added to cart");
+    const currentQty = getCartQuantity();
+
+    if (currentQty < inv.quantity) {
+      try {
+        if (currentQty === 0) {
+          if (!cart) await fetchCart(user.id);
+          if (cart) {
+            await addItem(cart.id, {
+              product_id: product.id,
+              quantity: 1,
+              price_at_addition: inv.price,
+              seller_id: inv.owner_id,
+            });
+            toast.success("Added to cart");
+          }
+        } else {
+          const item = cart?.items.find((i) => i.product_id === product.id);
+          if (item) {
+            await updateItem(cart!.id, item.id, currentQty + 1);
+            toast.success("Cart updated");
+          }
+        }
+      } catch (error) {
+        toast.error("Failed to update cart");
+      }
     } else {
       toast.error("Cannot add more than available stock");
     }
   };
 
-  const handleRemoveFromCart = () => {
-    if (quantity > 0) {
-      setQuantity(quantity - 1);
+  const handleRemoveFromCart = async () => {
+    const currentQty = getCartQuantity();
+    if (currentQty > 0) {
+      const item = cart?.items.find((i) => i.product_id === product.id);
+      if (item) {
+        try {
+          if (currentQty > 1) {
+            await updateItem(cart!.id, item.id, currentQty - 1);
+          } else {
+            await removeItem(cart!.id, item.id);
+          }
+          toast.success("Cart updated");
+        } catch (error) {
+          toast.error("Failed to update cart");
+        }
+      }
     }
+  };
+
+  const getCartQuantity = (): number => {
+    return (
+      cart?.items.find((item) => item.product_id === productId)?.quantity || 0
+    );
+  };
+
+  const getTotalCartItems = (): number => {
+    return cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   };
 
   const handleSubmitFeedback = async (e: React.FormEvent) => {
@@ -283,7 +351,7 @@ export default function ProductDetailPage() {
               >
                 <Heart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
+                  {wishlistItems.length}
                 </span>
               </Link>
 
@@ -293,7 +361,7 @@ export default function ProductDetailPage() {
               >
                 <ShoppingCart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {quantity}
+                  {getTotalCartItems()}
                 </span>
               </Link>
 
@@ -371,6 +439,34 @@ export default function ProductDetailPage() {
                   <Package size={96} className="text-gray-300" />
                 </div>
               )}
+              {/* Wishlist Heart */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Please login to manage wishlist");
+                    router.push("/auth/login");
+                    return;
+                  }
+                  if (isInWishlist(product.id)) {
+                    removeFromWishlist(user.id, product.id);
+                    toast.success("Removed from wishlist");
+                  } else {
+                    addToWishlist(user.id, product.id);
+                    toast.success("Added to wishlist");
+                  }
+                }}
+                className="absolute top-4 right-4 p-3 rounded-full bg-white shadow hover:bg-gray-50 transition"
+              >
+                <Heart
+                  size={22}
+                  className={
+                    isInWishlist(product.id)
+                      ? "fill-red-500 text-red-500"
+                      : "text-gray-600"
+                  }
+                />
+              </button>
             </div>
           </div>
 
@@ -461,7 +557,7 @@ export default function ProductDetailPage() {
             {/* Add to Cart */}
             {inv && inv.quantity > 0 && (
               <div className="space-y-4">
-                {quantity > 0 ? (
+                {getCartQuantity() > 0 ? (
                   <div className="flex items-center gap-4">
                     <div className="flex items-center justify-between bg-orange-500 rounded-lg p-3 flex-1">
                       <button
@@ -471,12 +567,12 @@ export default function ProductDetailPage() {
                         <Minus size={20} />
                       </button>
                       <span className="text-white font-bold text-xl px-4">
-                        {quantity}
+                        {getCartQuantity()}
                       </span>
                       <button
                         onClick={handleAddToCart}
                         className="text-white hover:bg-orange-600 rounded p-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={quantity >= inv.quantity}
+                        disabled={getCartQuantity() >= inv.quantity}
                       >
                         <Plus size={20} />
                       </button>
