@@ -153,15 +153,17 @@ export default function RegisterPage() {
 
     try {
       await register(data);
-      toast.success("Account created successfully!");
-      router.push(`/${selectedRole}/dashboard`);
+      toast.success("Registration successful! Please login to continue.");
+      // Redirect to login page after a brief delay
+      setTimeout(() => {
+        router.push("/login");
+      }, 1500);
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : "Registration failed. Please try again.";
       toast.error(message);
-    } finally {
       setIsLoading(false);
     }
   };

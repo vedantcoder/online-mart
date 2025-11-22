@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 type ProductRow = {
   id: string;
+  inventory_id?: string;
   name: string;
   images?: string[] | null;
   category_id?: string | null;
@@ -17,6 +18,7 @@ export default function InventoryPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -63,7 +65,7 @@ export default function InventoryPage() {
 
             <button
               onClick={load}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50"
+              className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50 text-gray-800"
             >
               Refresh
             </button>
@@ -73,34 +75,51 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-sm text-gray-600">Products</p>
-            <p className="text-2xl font-bold mt-2">{products.length}</p>
+            <p className="text-2xl font-bold mt-2 text-gray-900">
+              {products.length}
+            </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-sm text-gray-600">Low stock</p>
-            <p className="text-2xl font-bold mt-2">{products.filter(p => (p.stock ?? 0) < 5).length}</p>
+            <p className="text-2xl font-bold mt-2 text-gray-900">
+              {products.filter((p) => (p.stock ?? 0) < 5).length}
+            </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-sm text-gray-600">Last added</p>
-            <p className="text-2xl font-bold mt-2">{products[0]?.name ?? "—"}</p>
+            <p className="text-2xl font-bold mt-2 text-gray-900">
+              {products[0]?.name ?? "—"}
+            </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-sm text-gray-600">Total value</p>
-            <p className="text-2xl font-bold mt-2">
+            <p className="text-2xl font-bold mt-2 text-gray-900">
               ₹
-              {products.reduce((s, p) => s + Number(p.base_price ?? 0) * Number(p.stock ?? 0), 0).toFixed(2)}
+              {products
+                .reduce(
+                  (s, p) =>
+                    s + Number(p.base_price ?? 0) * Number(p.stock ?? 0),
+                  0
+                )
+                .toFixed(2)}
             </p>
           </div>
         </div>
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading products…</div>
+            <div className="p-8 text-center text-gray-500">
+              Loading products…
+            </div>
           ) : error ? (
             <div className="p-6 text-red-600">{error}</div>
           ) : products.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               No products yet. Click{" "}
-              <button onClick={() => router.push("/retailer/inventory/add")} className="text-blue-600 underline">
+              <button
+                onClick={() => router.push("/retailer/inventory/add")}
+                className="text-blue-600 underline"
+              >
                 Add Product
               </button>{" "}
               to create one.
@@ -123,6 +142,9 @@ export default function InventoryPage() {
                       Price
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Added
                     </th>
                   </tr>
@@ -134,21 +156,112 @@ export default function InventoryPage() {
                         <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
                           {p.images && p.images.length ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                            <img
+                              src={p.images[0]}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             <div className="w-full h-full bg-gray-100" />
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {p.name}
+                          </div>
                           <div className="text-xs text-gray-500">{p.id}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{p.category_id ?? "-"}</td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-700">{p.stock ?? 0}</td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-700">₹{Number(p.base_price ?? 0).toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {p.category_id ?? "-"}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-700">
+                        {p.stock ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-700">
+                        ₹{Number(p.base_price ?? 0).toFixed(2)}
+                      </td>
                       <td className="px-6 py-4 text-right text-sm text-gray-500">
-                        {p.created_at ? new Date(p.created_at).toLocaleString() : "-"}
+                        {p.created_at
+                          ? new Date(p.created_at).toLocaleString()
+                          : "-"}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-700">
+                        <button
+                          disabled={savingId === p.id}
+                          onClick={async () => {
+                            if (!p.inventory_id) return;
+                            const input = window.prompt(
+                              "Update stock quantity",
+                              String(p.stock ?? 0)
+                            );
+                            if (input === null) return;
+                            const qty = Number(input);
+                            if (Number.isNaN(qty))
+                              return alert("Invalid quantity");
+                            try {
+                              setSavingId(p.id);
+                              const res = await fetch(
+                                "/api/retailer/products",
+                                {
+                                  method: "PATCH",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    inventory_id: p.inventory_id,
+                                    quantity: qty,
+                                  }),
+                                }
+                              );
+                              const j = await res.json();
+                              if (!res.ok)
+                                throw new Error(j?.error || "Failed to update");
+                              await load();
+                            } catch (e: any) {
+                              alert(e?.message || "Failed to update");
+                            } finally {
+                              setSavingId(null);
+                            }
+                          }}
+                          className="inline-flex items-center px-3 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 mr-2"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          disabled={savingId === p.id}
+                          onClick={async () => {
+                            if (!p.inventory_id) return;
+                            if (
+                              !window.confirm(
+                                "Mark this product as unavailable?"
+                              )
+                            )
+                              return;
+                            try {
+                              setSavingId(p.id);
+                              const res = await fetch(
+                                `/api/retailer/products?inventory_id=${encodeURIComponent(
+                                  p.inventory_id
+                                )}`,
+                                {
+                                  method: "DELETE",
+                                }
+                              );
+                              const j = await res.json();
+                              if (!res.ok)
+                                throw new Error(j?.error || "Failed to delete");
+                              await load();
+                            } catch (e: any) {
+                              alert(e?.message || "Failed to delete");
+                            } finally {
+                              setSavingId(null);
+                            }
+                          }}
+                          className="inline-flex items-center px-3 py-1 text-xs rounded-md bg-red-50 text-red-700 hover:bg-red-100"
+                        >
+                          Disable
+                        </button>
                       </td>
                     </tr>
                   ))}

@@ -40,7 +40,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       // fetch customer cart when user is a customer
       if (user?.role === "customer") {
-        useCartStore.getState().fetchCart(user.id).catch(() => {});
+        useCartStore
+          .getState()
+          .fetchCart(user.id)
+          .catch(() => {});
       }
     } catch (error) {
       set({ isLoading: false });
@@ -51,16 +54,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (data) => {
     set({ isLoading: true });
     try {
-      const user = await AuthService.register(data);
-      set({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      // fetch customer cart when user is a customer
-      if (user?.role === "customer") {
-        useCartStore.getState().fetchCart(user.id).catch(() => {});
-      }
+      const result = await AuthService.register(data);
+      set({ isLoading: false });
+      return result;
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -104,7 +100,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
         // fetch customer cart when user is a customer
         if (user?.role === "customer") {
-          useCartStore.getState().fetchCart(user.id).catch(() => {});
+          useCartStore
+            .getState()
+            .fetchCart(user.id)
+            .catch(() => {});
         }
       } else {
         set({

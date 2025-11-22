@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { Retailer } from "@/lib/models/Retailer";
@@ -15,20 +15,47 @@ import {
 
 export default function RetailerDashboard() {
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, isLoading, initialize, logout } = useAuthStore();
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    lowStockItems: 0,
+    pendingOrders: 0,
+    connectedWholesalers: 0,
+  });
 
   useEffect(() => {
-    if (!user || user.getRole() !== "retailer") {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (!isLoading && (!user || user.getRole() !== "retailer")) {
       router.push("/login?role=retailer");
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const res = await fetch("/api/retailer/stats", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        setStats((prev) => ({ ...prev, ...json }));
+      } catch {
+        // ignore dashboard stats errors for now
+      }
+    }
+
+    if (!isLoading && user && user.getRole() === "retailer") {
+      loadStats();
+    }
+  }, [isLoading, user]);
 
   const handleLogout = async () => {
     await logout();
     router.push("/");
   };
 
-  if (!user || user.getRole() !== "retailer") {
+  if (isLoading || !user || user.getRole() !== "retailer") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         Loading...
@@ -122,7 +149,9 @@ export default function RetailerDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stats.totalProducts}
+                </p>
               </div>
               <Package size={32} className="text-green-600" />
             </div>
@@ -132,7 +161,9 @@ export default function RetailerDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Low Stock Items</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stats.lowStockItems}
+                </p>
               </div>
               <TrendingUp size={32} className="text-orange-600" />
             </div>
@@ -142,7 +173,9 @@ export default function RetailerDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stats.pendingOrders}
+                </p>
               </div>
               <ShoppingBag size={32} className="text-blue-600" />
             </div>
@@ -152,7 +185,9 @@ export default function RetailerDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Connected Wholesalers</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stats.connectedWholesalers}
+                </p>
               </div>
               <Users size={32} className="text-purple-600" />
             </div>

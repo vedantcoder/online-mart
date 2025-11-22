@@ -85,9 +85,9 @@ export default function ProductDetailPage() {
         return;
       }
 
-      // Filter for available inventory
-      productData.inventory = productData.inventory?.filter(
-        (inv: any) => inv.is_available && inv.quantity > 0
+      // Sort inventory by price (lowest first) & keep all rows (even zero quantity for visibility)
+      productData.inventory = (productData.inventory || []).sort(
+        (a: any, b: any) => Number(a.price) - Number(b.price)
       );
 
       setProduct(productData);
@@ -305,6 +305,10 @@ export default function ProductDetailPage() {
   }
 
   const inv = product.inventory?.[0];
+  const totalStock = (product.inventory || []).reduce(
+    (sum: number, row: any) => sum + Number(row.quantity || 0),
+    0
+  );
   const avgRating = getAverageRating();
   const ratingDist = getRatingDistribution();
 
@@ -532,27 +536,33 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Stock Status */}
-            {inv && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2">
-                  {inv.quantity > 0 ? (
-                    <>
-                      <CheckCircle className="text-green-500" size={20} />
-                      <span className="text-green-700 font-medium">
-                        In Stock ({inv.quantity} available)
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="text-red-500" size={20} />
-                      <span className="text-red-700 font-medium">
-                        Out of Stock
-                      </span>
-                    </>
-                  )}
-                </div>
+            <div className="mb-6">
+              <div className="flex items-center gap-2">
+                {totalStock > 0 ? (
+                  <>
+                    <CheckCircle className="text-green-500" size={20} />
+                    <span className="text-green-700 font-medium">
+                      In Stock ({totalStock} total units across{" "}
+                      {product.inventory?.length || 0} seller
+                      {(product.inventory?.length || 0) === 1 ? "" : "s"})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="text-red-500" size={20} />
+                    <span className="text-red-700 font-medium">
+                      Out of Stock
+                    </span>
+                  </>
+                )}
               </div>
-            )}
+              {inv && totalStock > 0 && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Lowest price retailer: ₹{inv.price.toLocaleString("en-IN")}{" "}
+                  (first listing)
+                </p>
+              )}
+            </div>
 
             {/* Add to Cart */}
             {inv && inv.quantity > 0 && (

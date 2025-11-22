@@ -5,8 +5,6 @@ import { Wholesaler } from "@/lib/models/Wholesaler";
 import { DeliveryPerson } from "@/lib/models/DeliveryPerson";
 import { User } from "@/lib/models/User";
 
-
-
 export type UserRole = "customer" | "retailer" | "wholesaler" | "delivery";
 
 export interface RegisterData {
@@ -56,97 +54,42 @@ export interface RegisterData {
  */
 export class AuthService {
   /**
-   * Register a new user
+   * Register a new user (does not auto-login)
    */
-  static async register(data: RegisterData): Promise<User> {
-    // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          full_name: data.full_name,
-          phone: data.phone,
-          role: data.role,
-        },
-      },
-    });
-
-    if (authError) throw authError;
-    if (!authData.user) throw new Error("User creation failed");
-
-    const userId = authData.user.id;
-
+  static async register(
+    data: RegisterData
+  ): Promise<{ success: boolean; role: UserRole }> {
     try {
-      // Create profile
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        email: data.email,
-        phone: data.phone,
-        full_name: data.full_name,
-        role: data.role,
+      const { email, password, full_name, phone, role } = data;
+
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name,
+            phone,
+            role,
+            shop_name: data.retailer?.shop_name,
+            business_name: data.wholesaler?.business_name,
+          },
+        },
       });
 
-      if (profileError) throw profileError;
-
-      // Create role-specific record
-      switch (data.role) {
-        case "customer":
-          await supabase.from("customers").insert({
-            id: userId,
-            ...data.customer,
-          });
-          break;
-
-        case "retailer":
-          if (!data.retailer?.shop_name) {
-            throw new Error("Shop name is required for retailers");
-          }
-          await supabase.from("retailers").insert({
-            id: userId,
-            shop_name: data.retailer.shop_name,
-            shop_address: data.retailer.shop_address,
-            shop_city: data.retailer.shop_city,
-            shop_state: data.retailer.shop_state,
-            shop_pincode: data.retailer.shop_pincode,
-            shop_latitude: data.retailer.shop_latitude,
-            shop_longitude: data.retailer.shop_longitude,
-          });
-          break;
-
-        case "wholesaler":
-          if (!data.wholesaler?.business_name) {
-            throw new Error("Business name is required for wholesalers");
-          }
-          await supabase.from("wholesalers").insert({
-            id: userId,
-            business_name: data.wholesaler.business_name,
-            business_address: data.wholesaler.business_address,
-            business_city: data.wholesaler.business_city,
-            business_state: data.wholesaler.business_state,
-            business_pincode: data.wholesaler.business_pincode,
-            business_latitude: data.wholesaler.business_latitude,
-            business_longitude: data.wholesaler.business_longitude,
-            gst_number: data.wholesaler.gst_number,
-          });
-          break;
-
-        case "delivery":
-          await supabase.from("delivery_persons").insert({
-            id: userId,
-            vehicle_type: data.delivery?.vehicle_type,
-            vehicle_number: data.delivery?.vehicle_number,
-            license_number: data.delivery?.license_number,
-          });
-          break;
+      if (error) {
+        throw error;
       }
 
-      // Fetch complete user data
-      return await this.getCurrentUser();
-    } catch (error) {
-      // Rollback: delete auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(userId);
-      throw error;
+      if (!signUpData.user) {
+        throw new Error("Registration failed");
+      }
+
+      return { success: true, role: data.role };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw e;
+      }
+      throw new Error("Registration failed: " + String(e));
     }
   }
 
@@ -196,7 +139,6 @@ export class AuthService {
     if (error) throw error;
     return data;
   }
-
 
   /**
    * Send OTP to phone number
