@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
 import { Wholesaler } from "@/lib/models/Wholesaler";
 import {
@@ -13,9 +14,54 @@ import {
   LogOut,
 } from "lucide-react";
 
+type TabKey = "pending" | "orders" | "profile";
+
+const Tabs: React.FC<{ active: TabKey; onChange: (t: TabKey) => void }> = ({
+  active,
+  onChange,
+}) => {
+  return (
+    <nav className="flex gap-2 mb-6">
+      <button
+        className={`px-4 py-2 rounded ${
+          active === "pending"
+            ? "bg-blue-600 text-white"
+            : "bg-gray-100"
+        }`}
+        onClick={() => onChange("pending")}
+      >
+        Pending Orders
+      </button>
+      <button
+        className={`px-4 py-2 rounded ${
+          active === "orders" ? "bg-blue-600 text-white" : "bg-gray-100"
+        }`}
+        onClick={() => onChange("orders")}
+      >
+        Orders
+      </button>
+      <button
+        className={`px-4 py-2 rounded ${
+          active === "profile" ? "bg-blue-600 text-white" : "bg-gray-100"
+        }`}
+        onClick={() => onChange("profile")}
+      >
+        Profile
+      </button>
+      <Link
+        href="/wholesaler/orders"
+        className="ml-auto underline text-sm text-gray-700"
+      >
+        Go to Orders page
+      </Link>
+    </nav>
+  );
+};
+
 export default function WholesalerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const [tab, setTab] = useState<TabKey>("pending");
 
   useEffect(() => {
     if (!user || user.getRole() !== "wholesaler") {
@@ -107,85 +153,79 @@ export default function WholesalerDashboard() {
           </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+        <Tabs active={tab} onChange={setTab} />
+
+        <section>
+          {tab === "pending" && (
+            <div>
+              <h2 className="text-lg font-medium mb-3">Pending orders</h2>
+              <div className="space-y-3">
+                <div className="p-4 border rounded bg-white">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="font-medium">Order #WD-1001</div>
+                      <div className="text-sm text-gray-600">
+                        Retailer: Acme Grocery
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-700">Qty: 120</div>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    Placed: 2 hours ago
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button className="px-3 py-1 bg-green-600 text-white rounded text-sm">
+                      Accept
+                    </button>
+                    <button className="px-3 py-1 bg-red-600 text-white rounded text-sm">
+                      Reject
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded bg-white text-sm text-gray-600">
+                  No more pending orders. This is placeholder UI — wire up real
+                  data from your orders API.
+                </div>
               </div>
-              <Package size={32} className="text-purple-600" />
             </div>
-          </div>
+          )}
 
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Connected Retailers</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+          {tab === "orders" && (
+            <div>
+              <h2 className="text-lg font-medium mb-3">All orders</h2>
+              <div className="grid gap-3">
+                <div className="p-4 border rounded bg-white">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="font-medium">Order #WD-0999</div>
+                      <div className="text-sm text-gray-600">
+                        Retailer: GreenMart
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-700">Status: Delivered</div>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    Delivered: 2 days ago
+                  </div>
+                </div>
               </div>
-              <Users size={32} className="text-green-600" />
             </div>
-          </div>
+          )}
 
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">0</p>
+          {tab === "profile" && (
+            <div>
+              <h2 className="text-lg font-medium mb-3">Profile</h2>
+              <div className="p-4 border rounded bg-white text-sm text-gray-700">
+                Name: Wholesale Co.
+                <br />
+                Email: wholesaler@example.com
+                <br />
+                Address: 123 Supply Rd.
               </div>
-              <ShoppingBag size={32} className="text-blue-600" />
             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Monthly Revenue</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">₹0</p>
-              </div>
-              <TrendingUp size={32} className="text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Quick Actions
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-              <Package size={24} className="text-purple-600 mb-2" />
-              <p className="font-medium text-gray-900">Add Bulk Product</p>
-              <p className="text-sm text-gray-600">Add wholesale inventory</p>
-            </button>
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-              <ShoppingBag size={24} className="text-blue-600 mb-2" />
-              <p className="font-medium text-gray-900">View Orders</p>
-              <p className="text-sm text-gray-600">Check retailer orders</p>
-            </button>
-            <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left">
-              <Users size={24} className="text-green-600 mb-2" />
-              <p className="font-medium text-gray-900">Manage Retailers</p>
-              <p className="text-sm text-gray-600">View connected retailers</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Orders */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Recent Retailer Orders
-          </h3>
-          <div className="text-center py-12 text-gray-500">
-            <p>No orders yet</p>
-            <p className="text-sm mt-2">
-              Orders from retailers will appear here
-            </p>
-          </div>
-        </div>
+          )}
+        </section>
       </main>
     </div>
   );
