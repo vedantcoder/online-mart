@@ -1,0 +1,109 @@
+ELECTRONICS (25 products):
+1. Samsung Galaxy S24 Ultra
+2. Apple iPhone 15 Pro Max
+3. OnePlus 12
+4. Google Pixel 8 Pro
+5. Xiaomi 14 Pro
+6. MacBook Pro 14" M3
+7. Dell XPS 15
+8. ASUS ROG Strix G16
+9. HP Pavilion Plus 14
+10. Lenovo ThinkPad X1 Carbon
+11. iPad Pro 12.9" M2
+12. Samsung Galaxy Tab S9
+13. Sony WH-1000XM5
+14. AirPods Pro 2nd Gen
+15. Bose QuietComfort 45
+16. Apple Watch Series 9
+17. Samsung Galaxy Watch 6
+18. Canon EOS R6 Mark II
+19. Sony A7 IV
+20. GoPro Hero 12 Black
+21. LG 55" C3 OLED TV
+22. Samsung 65" Neo QLED
+23. Sony PS5 Slim
+24. Xbox Series X
+25. Nintendo Switch OLED
+
+GROCERY (25 products):
+26. Aashirvaad Atta 10kg
+27. Fortune Sunlite Oil 5L
+28. Tata Salt Iodized 1kg
+29. India Gate Basmati Rice 5kg
+30. Maggi 2-Minute Noodles 12-Pack
+31. Amul Gold Milk 1L
+32. Britannia Good Day Butter 600g
+33. Parle-G Biscuits 1kg
+34. Cadbury Dairy Milk 120g
+35. Nescafe Classic Coffee 200g
+36. Taj Mahal Tea 1kg
+37. Red Label Natural Care Tea 1kg
+38. Kissan Fresh Tomato Ketchup 1kg
+39. Everest Garam Masala 100g
+40. MDH Chana Masala 100g
+41. Catch Sprinklers Chat Masala 100g
+42. Haldiram Aloo Bhujia 1kg
+43. Kurkure Masala Munch 90g
+44. Lays Classic Salted 90g
+45. Bingo Mad Angles 90g
+46. Amul Butter 500g
+47. Mother Dairy Paneer 200g
+48. Amul Cheese Slices 400g
+49. Surf Excel Matic Liquid 2L
+50. Vim Dishwash Liquid 2L
+
+PERSONAL CARE (20 products):
+51. Dove Intense Repair Shampoo 650ml
+52. Pantene Pro-V Silky Smooth 650ml
+53. Head & Shoulders Anti-Dandruff 650ml
+54. Lakme Absolute Matte Lipstick
+55. Maybelline Fit Me Foundation
+56. Nivea Soft Light Moisturizer 300ml
+57. Vaseline Intensive Care Lotion 400ml
+58. Ponds Age Miracle Cream 50g
+59. Himalaya Neem Face Wash 150ml
+60. Garnier Skin Naturals Serum 30ml
+61. Colgate Total Advanced Health 200g
+62. Sensodyne Sensitivity Care 100g
+63. Oral-B Pro-Health Toothbrush
+64. Gillette Mach3 Razor + 2 Cartridges
+65. Gillette Venus Razor for Women
+66. Dettol Antiseptic Liquid 550ml
+67. Savlon Antiseptic Cream 100g
+68. Johnson Baby Oil 500ml
+69. Himalaya Baby Powder 400g
+70. Pampers Baby Diapers M 74pcs
+
+HOME & KITCHEN (20 products):
+71. Prestige Deluxe Alpha Cooker 5L
+72. Hawkins Contura Hard Anodised 5L
+73. Pigeon Favourite Non-Stick Cookware 3pc
+74. Prestige Omega Deluxe Granite Kadai
+75. Milton Thermosteel Flask 1L
+76. Cello Opalware Dinner Set 27pcs
+77. Borosil Mixing Bowl Set 5pcs
+78. Tupperware Storage Container 4pcs
+79. Philips Daily Collection Kettle 1.5L
+80. Bajaj Majesty RX11 Toaster
+81. Philips Air Fryer HD9252
+82. Prestige IRIS 750W Mixer Grinder
+83. Bajaj Rex 500W Mixer Grinder
+84. Philips Viva Collection Blender
+85. Usha EI 3302 1000W Dry Iron
+86. Philips GC1905 Steam Iron
+87. Eureka Forbes Vacuum Cleaner
+88. Philips LED Bulb 9W Pack of 4
+89. Wipro LED Batten 20W
+90. Solimo Bedsheet Queen Size
+
+FASHION (10 products):
+91. Levi's Men's Slim Fit Jeans
+92. Allen Solly Men's Formal Shirt
+93. Peter England Blazer
+94. Nike Air Max Running Shoes
+95. Adidas Originals Superstar
+96. Puma Unisex Backpack
+97. Fastrack Analog Watch
+98. Titan Raga Watch
+99. Ray-Ban Aviator Sunglasses
+100. Wildcraft Travel Duffle 60L
