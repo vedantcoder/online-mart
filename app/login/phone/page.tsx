@@ -19,36 +19,16 @@ export default function PhoneLoginPage() {
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!phone) {
-      toast.error("Please enter your phone number");
-      return;
-    }
-
-    // Validate phone format (basic validation)
-    const phoneRegex = /^\+?[1-9]\d{9,14}$/;
-    if (!phoneRegex.test(phone.replace(/\s/g, ""))) {
-      toast.error(
-        "Please enter a valid phone number with country code (e.g., +91 9876543210)"
-      );
-      return;
-    }
-
     setIsLoading(true);
-
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: phone.replace(/\s/g, ""),
-      });
-
-      if (error) throw error;
-
-      toast.success("OTP sent to your phone!");
+      // Hardcoded phone number and OTP
+      const hardcodedPhone = "+918956134149";
+      const normalizedPhone = phone.replace(/\s/g, "");
+      if (normalizedPhone !== hardcodedPhone) {
+        setIsLoading(false);
+        return;
+      }
       setStep("otp");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Failed to send OTP";
-      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -56,44 +36,42 @@ export default function PhoneLoginPage() {
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!otp || otp.length !== 6) {
-      toast.error("Please enter the 6-digit OTP");
-      return;
-    }
-
     setIsLoading(true);
-
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phone.replace(/\s/g, ""),
-        token: otp,
-        type: "sms",
-      });
-
-      if (error) throw error;
-      if (!data.user) throw new Error("Verification failed");
-
-      // Check if user has complete profile
-      const { data: profile } = await supabase
+      // Hardcoded OTP verification
+      const hardcodedOTP = "852147";
+      const hardcodedPhone = "+918956134149";
+      const normalizedPhone = phone.replace(/\s/g, "");
+      if (normalizedPhone !== hardcodedPhone) {
+        setIsLoading(false);
+        return;
+      }
+      if (otp !== hardcodedOTP) {
+        setIsLoading(false);
+        return;
+      }
+      // Check if user exists with this phone
+      const { data: existingProfile } = await supabase
         .from("profiles")
-        .select("role, phone")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profile?.role) {
-        // User exists, reinitialize and redirect to dashboard
+        .select("id, role, phone, email")
+        .eq("phone", hardcodedPhone)
+        .maybeSingle();
+      if (existingProfile?.role) {
+        localStorage.setItem("otp_phone", hardcodedPhone);
         await initialize();
-        toast.success("Login successful!");
-        router.push(`/${profile.role}/dashboard`);
+        router.push(`/${existingProfile.role}/dashboard`);
       } else {
-        // New user, needs to complete profile
-        toast.success("Phone verified! Please complete your profile.");
+        localStorage.setItem("otp_phone", hardcodedPhone);
+        localStorage.setItem(
+          "otp_user",
+          JSON.stringify({
+            phone: hardcodedPhone,
+            provider: "otp",
+          })
+        );
+        toast.success("Registration complete");
         router.push("/auth/complete-profile");
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Invalid OTP";
-      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -102,16 +80,14 @@ export default function PhoneLoginPage() {
   const handleResendOTP = async () => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: phone.replace(/\s/g, ""),
-      });
-
-      if (error) throw error;
-      toast.success("OTP resent to your phone!");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Failed to resend OTP";
-      toast.error(message);
+      // Hardcoded OTP resend
+      const hardcodedPhone = "+918956134149";
+      const normalizedPhone = phone.replace(/\s/g, "");
+      if (normalizedPhone !== hardcodedPhone) {
+        setIsLoading(false);
+        return;
+      }
+      // No toast, just simulate
     } finally {
       setIsLoading(false);
     }
