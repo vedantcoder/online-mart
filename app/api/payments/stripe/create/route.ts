@@ -45,29 +45,48 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-    const stripe = new Stripe(stripeSecretKey);
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: "2025-11-17.clover",
+    });
     const amountInSmallestUnit = Math.round(
       Number(orderRow.total_amount) * 100
     );
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInSmallestUnit,
-      currency: "inr",
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "inr",
+            product_data: {
+              name: `Order #${orderRow.order_number}`,
+            },
+            unit_amount: amountInSmallestUnit,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders/${orderRow.id}?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders/${orderRow.id}?canceled=true`,
       metadata: {
         order_id: orderRow.id,
         order_number: orderRow.order_number || "",
       },
-      automatic_payment_methods: { enabled: true },
+      customer_email: user.email,
     });
+
     await supabase
       .from("orders")
       .update({
         payment_gateway: "stripe",
-        payment_gateway_order_id: paymentIntent.id,
+        payment_gateway_order_id: session.id,
       })
       .eq("id", orderRow.id);
+
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
+      sessionUrl: session.url,
+      sessionId: session.id,
     });
   } catch (err: unknown) {
     console.error("STRIPE CREATE ERROR", err);

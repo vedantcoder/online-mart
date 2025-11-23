@@ -134,7 +134,10 @@ export class ProductService {
   }
 
   // Get product by ID
-  static async getProductById(id: string): Promise<ProductModel | null> {
+  static async getProductById(
+    id: string,
+    role?: string
+  ): Promise<ProductModel | null> {
     const { data, error } = await supabase
       .from("products")
       .select(
@@ -142,7 +145,12 @@ export class ProductService {
         *,
         category:categories(*),
         images:product_images(*),
-        inventory(*)
+        inventory(
+          *,
+          owner:profiles!owner_id(id, full_name, role),
+          retailer:retailers!owner_id(id, shop_name),
+          wholesaler:wholesalers!owner_id(id, business_name)
+        )
       `
       )
       .eq("id", id)
@@ -153,7 +161,20 @@ export class ProductService {
       throw new Error(`Failed to fetch product: ${error.message}`);
     }
 
-    return new ProductModel(data as Product);
+    // Filter inventory based on role
+    let filteredInventory = data.inventory || [];
+
+    // Customers should only see retailer inventory
+    if (role === "customer" || !role) {
+      filteredInventory = filteredInventory.filter(
+        (inv: any) => inv.owner_type === "retailer" && inv.is_available
+      );
+    }
+
+    return new ProductModel({
+      ...(data as Product),
+      inventory: filteredInventory,
+    });
   }
 
   // Create product
@@ -429,6 +450,7 @@ export class ProductService {
     in_stock_only?: boolean;
     limit?: number;
     offset?: number;
+    role?: string; // 'customer', 'retailer', 'wholesaler'
   }): Promise<{ products: ProductModel[]; count: number }> {
     let query = supabase.from("products").select(
       `
@@ -502,12 +524,29 @@ export class ProductService {
 
     let products = (data || []).map((p) => {
       const ratingInfo = ratingsMap[p.id] || { avg: 0, count: 0 };
+
+      // Filter inventory based on role
+      let filteredInventory = p.inventory || [];
+
+      // Customers should only see retailer inventory
+      if (params.role === "customer" || !params.role) {
+        filteredInventory = filteredInventory.filter(
+          (inv: any) => inv.owner_type === "retailer" && inv.is_available
+        );
+      }
+
       return new ProductModel({
         ...(p as Product),
+        inventory: filteredInventory,
         average_rating: ratingInfo.avg,
         review_count: ratingInfo.count,
       });
     });
+
+    // Filter out products with no inventory for customers
+    if (params.role === "customer" || !params.role) {
+      products = products.filter((p) => p.inventory && p.inventory.length > 0);
+    }
 
     // Post-processing filters (for inventory-related filters)
     if (params.seller_id) {
@@ -534,7 +573,7 @@ export class ProductService {
       });
     }
 
-    return { products, count: count || 0 };
+    return { products, count: products.length };
   }
 }
 

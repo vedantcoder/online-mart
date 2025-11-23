@@ -3,31 +3,31 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
-import { ArrowLeft, Package, Store, MapPin, Plus, Search } from "lucide-react";
+import { ArrowLeft, Package, Store, MapPin, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
-interface Product {
+interface WholesalerProduct {
   id: string;
   name: string;
   description: string;
+  sku: string;
   unit: string;
-  categories: {
+  wholesale_price: number;
+  mrp: number;
+  quantity_in_stock: number;
+  low_stock_threshold: number;
+  images: Array<{
+    url: string;
+    is_primary: boolean;
+    display_order: number;
+  }>;
+  specifications: any;
+  category: {
+    id: string;
     name: string;
     slug: string;
   };
-  product_images: Array<{
-    image_url: string;
-    is_primary: boolean;
-  }>;
-}
-
-interface InventoryItem {
-  id: string;
-  product_id: string;
-  quantity: number;
-  price: number;
-  mrp: number;
-  product: Product;
+  created_at: string;
 }
 
 interface Wholesaler {
@@ -38,12 +38,12 @@ interface Wholesaler {
   business_state: string;
   business_latitude: number;
   business_longitude: number;
-  profiles: {
+  profile: {
     full_name: string;
     email: string;
     phone: string;
   };
-  inventory: InventoryItem[];
+  products: WholesalerProduct[];
 }
 
 export default function FindWholesalersPage() {
@@ -52,26 +52,18 @@ export default function FindWholesalersPage() {
   const [wholesalers, setWholesalers] = useState<Wholesaler[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<{
-    inventoryId: string;
-    productName: string;
-    wholesalerName: string;
-    currentPrice: number;
-    currentMrp: number;
-  } | null>(null);
-  const [purchaseItem, setPurchaseItem] = useState<{
-    inventoryId: string;
-    productName: string;
-    wholesalerName: string;
-    currentPrice: number;
-    currentMrp: number;
-  } | null>(null);
-  const [proxyQuantity, setProxyQuantity] = useState(0);
-  const [proxyPrice, setProxyPrice] = useState(0);
-  const [proxyMrp, setProxyMrp] = useState(0);
-  const [purchaseQuantity, setPurchaseQuantity] = useState(0);
-  const [retailerPrice, setRetailerPrice] = useState(0);
-  const [retailerMrp, setRetailerMrp] = useState(0);
+  const [selectedProducts, setSelectedProducts] = useState<
+    Array<{
+      wholesaler_id: string;
+      wholesaler_product_id: string;
+      product_name: string;
+      quantity: number;
+      price_per_unit: number;
+    }>
+  >([]);
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [orderNotes, setOrderNotes] = useState("");
 
   useEffect(() => {
     initialize();
@@ -92,123 +84,136 @@ export default function FindWholesalersPage() {
   const loadWholesalers = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/retailer/proxy-inventory");
-      if (!res.ok) throw new Error("Failed to load wholesalers");
+      const res = await fetch("/api/retailer/wholesaler-products");
+      if (!res.ok) throw new Error("Failed to load wholesaler products");
       const data = await res.json();
       setWholesalers(data.wholesalers || []);
     } catch (error) {
-      console.error("Load wholesalers error:", error);
-      toast.error("Failed to load wholesalers");
+      console.error("Load wholesaler products error:", error);
+      toast.error("Failed to load wholesaler products");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddProxyItem = (
-    inventoryId: string,
-    productName: string,
-    wholesalerName: string,
-    price: number,
-    mrp: number
+  const handleAddToCart = (
+    wholesaler_id: string,
+    wholesaler_product_id: string,
+    product_name: string,
+    price_per_unit: number
   ) => {
-    setSelectedItem({
-      inventoryId,
-      productName,
-      wholesalerName,
-      currentPrice: price,
-      currentMrp: mrp,
-    });
-    setProxyQuantity(0);
-    setProxyPrice(price * 1.1); // 10% markup
-    setProxyMrp(mrp);
-  };
+    const existingProduct = selectedProducts.find(
+      (p) => p.wholesaler_product_id === wholesaler_product_id
+    );
 
-  const handleBuyAndAdd = (
-    inventoryId: string,
-    productName: string,
-    wholesalerName: string,
-    price: number,
-    mrp: number
-  ) => {
-    setPurchaseItem({
-      inventoryId,
-      productName,
-      wholesalerName,
-      currentPrice: price,
-      currentMrp: mrp,
-    });
-    setPurchaseQuantity(0);
-    setRetailerPrice(price * 1.15); // suggest 15% markup for direct purchase
-    setRetailerMrp(mrp || price * 1.2);
-  };
-
-  const submitProxyItem = async () => {
-    if (!selectedItem) return;
-
-    if (proxyQuantity <= 0) {
-      toast.error("Please enter a valid quantity");
+    if (existingProduct) {
+      toast.error("Product already in cart");
       return;
     }
 
-    try {
-      const res = await fetch("/api/retailer/proxy-inventory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          wholesaler_inventory_id: selectedItem.inventoryId,
-          proxy_quantity: proxyQuantity,
-          proxy_price: proxyPrice,
-          proxy_mrp: proxyMrp,
-        }),
-      });
+    setSelectedProducts([
+      ...selectedProducts,
+      {
+        wholesaler_id,
+        wholesaler_product_id,
+        product_name,
+        quantity: 1,
+        price_per_unit,
+      },
+    ]);
+    toast.success(`${product_name} added to cart`);
+  };
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to add proxy item");
-      }
-
-      toast.success("Proxy item added to your inventory successfully!");
-      setSelectedItem(null);
-      setProxyQuantity(0);
-      router.push("/retailer/inventory");
-    } catch (error) {
-      console.error("Add proxy item error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to add proxy item"
+  const updateQuantity = (wholesaler_product_id: string, quantity: number) => {
+    if (quantity <= 0) {
+      setSelectedProducts(
+        selectedProducts.filter(
+          (p) => p.wholesaler_product_id !== wholesaler_product_id
+        )
       );
-    }
-  };
-
-  const submitPurchase = async () => {
-    if (!purchaseItem) return;
-    if (purchaseQuantity <= 0) {
-      toast.error("Please enter a valid quantity");
       return;
     }
-    try {
-      const res = await fetch("/api/retailer/proxy-inventory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "purchase",
-          wholesaler_inventory_id: purchaseItem.inventoryId,
-          purchase_quantity: purchaseQuantity,
-          retailer_price: retailerPrice,
-          retailer_mrp: retailerMrp,
-        }),
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to purchase");
+
+    setSelectedProducts(
+      selectedProducts.map((p) =>
+        p.wholesaler_product_id === wholesaler_product_id
+          ? { ...p, quantity }
+          : p
+      )
+    );
+  };
+
+  const removeFromCart = (wholesaler_product_id: string) => {
+    setSelectedProducts(
+      selectedProducts.filter(
+        (p) => p.wholesaler_product_id !== wholesaler_product_id
+      )
+    );
+  };
+
+  const submitOrder = async () => {
+    if (selectedProducts.length === 0) {
+      toast.error("Please add products to cart");
+      return;
+    }
+
+    if (!deliveryAddress.trim()) {
+      toast.error("Please enter delivery address");
+      return;
+    }
+
+    // Group products by wholesaler
+    const ordersByWholesaler = selectedProducts.reduce((acc, product) => {
+      if (!acc[product.wholesaler_id]) {
+        acc[product.wholesaler_id] = [];
       }
-      toast.success("Purchased and added to your inventory!");
-      setPurchaseItem(null);
-      setPurchaseQuantity(0);
-      router.push("/retailer/inventory");
+      acc[product.wholesaler_id].push(product);
+      return acc;
+    }, {} as Record<string, typeof selectedProducts>);
+
+    try {
+      // Create separate orders for each wholesaler
+      const orderPromises = Object.entries(ordersByWholesaler).map(
+        async ([wholesaler_id, products]) => {
+          const items = products.map((p) => ({
+            wholesaler_product_id: p.wholesaler_product_id,
+            product_name: p.product_name,
+            quantity: p.quantity,
+            price_per_unit: p.price_per_unit,
+          }));
+
+          const res = await fetch("/api/retailer/wholesaler-orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              wholesaler_id,
+              items,
+              delivery_address: deliveryAddress,
+              notes: orderNotes,
+            }),
+          });
+
+          if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.error || "Failed to create order");
+          }
+
+          return res.json();
+        }
+      );
+
+      await Promise.all(orderPromises);
+
+      toast.success("Purchase requests sent successfully!");
+      setSelectedProducts([]);
+      setDeliveryAddress("");
+      setOrderNotes("");
+      setShowCartModal(false);
+      router.push("/retailer/orders");
     } catch (error) {
-      console.error("Purchase error:", error);
+      console.error("Submit order error:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to purchase"
+        error instanceof Error ? error.message : "Failed to submit orders"
       );
     }
   };
@@ -219,9 +224,7 @@ export default function FindWholesalersPage() {
     return (
       ws.business_name.toLowerCase().includes(query) ||
       ws.business_city.toLowerCase().includes(query) ||
-      ws.inventory.some((item) =>
-        item.product.name.toLowerCase().includes(query)
-      )
+      ws.products.some((product) => product.name.toLowerCase().includes(query))
     );
   });
 
@@ -245,10 +248,10 @@ export default function FindWholesalersPage() {
           </button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">
-              Find Wholesalers
+              Browse Wholesaler Products
             </h1>
             <p className="text-gray-600 mt-1">
-              Browse wholesaler inventory and add proxy items to your store
+              Browse products from wholesalers and send purchase requests
             </p>
           </div>
         </div>
@@ -269,6 +272,29 @@ export default function FindWholesalersPage() {
             />
           </div>
         </div>
+
+        {/* Cart Button */}
+        {selectedProducts.length > 0 && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-blue-900">
+                {selectedProducts.length} product(s) in cart
+              </p>
+              <p className="text-sm text-blue-700">
+                Total: ₹
+                {selectedProducts
+                  .reduce((sum, p) => sum + p.quantity * p.price_per_unit, 0)
+                  .toFixed(2)}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCartModal(true)}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Review & Send Request
+            </button>
+          </div>
+        )}
 
         {filteredWholesalers.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -292,7 +318,7 @@ export default function FindWholesalersPage() {
                         {wholesaler.business_name}
                       </h2>
                       <p className="text-gray-600 mt-1">
-                        {wholesaler.profiles?.full_name ||
+                        {wholesaler.profile?.full_name ||
                           wholesaler.business_name}
                       </p>
                       <div className="flex items-center gap-2 mt-2 text-gray-500">
@@ -304,35 +330,37 @@ export default function FindWholesalersPage() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
-                        📞 {wholesaler.profiles?.phone || "-"} | ✉️{" "}
-                        {wholesaler.profiles?.email || "-"}
+                        📞 {wholesaler.profile?.phone || "-"} | ✉️{" "}
+                        {wholesaler.profile?.email || "-"}
                       </p>
                     </div>
                     <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg">
-                      {wholesaler.inventory.length} Products
+                      {wholesaler.products.length} Products
                     </div>
                   </div>
                 </div>
 
                 {/* Wholesaler Inventory */}
                 <div className="p-6">
-                  {wholesaler.inventory.length === 0 ? (
+                  {wholesaler.products.length === 0 ? (
                     <p className="text-center text-gray-500 py-4">
                       No products available
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {wholesaler.inventory.map((item) => {
-                        const primaryImage = item.product.product_images?.find(
+                      {wholesaler.products.map((product) => {
+                        const primaryImage = product.images?.find(
                           (img) => img.is_primary
                         );
                         const imageUrl =
-                          primaryImage?.image_url ||
-                          item.product.product_images?.[0]?.image_url;
+                          primaryImage?.url || product.images?.[0]?.url;
+                        const isInCart = selectedProducts.some(
+                          (p) => p.wholesaler_product_id === product.id
+                        );
 
                         return (
                           <div
-                            key={item.id}
+                            key={product.id}
                             className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                           >
                             <div className="w-full h-40 bg-gray-100 rounded-md overflow-hidden mb-3">
@@ -340,7 +368,7 @@ export default function FindWholesalersPage() {
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={imageUrl}
-                                  alt={item.product.name}
+                                  alt={product.name}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
@@ -353,64 +381,52 @@ export default function FindWholesalersPage() {
                               )}
                             </div>
                             <h3 className="font-semibold text-gray-900 mb-1">
-                              {item.product.name}
+                              {product.name}
                             </h3>
                             <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                              {item.product.description || "No description"}
+                              {product.description || "No description"}
                             </p>
                             <div className="flex items-center justify-between mb-2">
                               <div>
                                 <p className="text-sm text-gray-500">
-                                  Category:{" "}
-                                  {item.product.categories?.name || "N/A"}
+                                  Category: {product.category?.name || "N/A"}
                                 </p>
                                 <p className="text-sm text-gray-500">
-                                  Stock: {item.quantity} {item.product.unit}
+                                  Stock: {product.quantity_in_stock}{" "}
+                                  {product.unit}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-lg font-bold text-gray-900">
-                                  ₹{item.price.toFixed(2)}
+                                  ₹{product.wholesale_price.toFixed(2)}
                                 </p>
-                                {item.mrp && item.mrp > item.price && (
-                                  <p className="text-sm text-gray-500 line-through">
-                                    ₹{item.mrp.toFixed(2)}
-                                  </p>
-                                )}
+                                {product.mrp &&
+                                  product.mrp > product.wholesale_price && (
+                                    <p className="text-sm text-gray-500 line-through">
+                                      MRP: ₹{product.mrp.toFixed(2)}
+                                    </p>
+                                  )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() =>
-                                    handleBuyAndAdd(
-                                      item.id,
-                                      item.product.name,
-                                      wholesaler.business_name,
-                                      item.price,
-                                      item.mrp || item.price
-                                    )
-                                  }
-                                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                  Buy & Add
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleAddProxyItem(
-                                      item.id,
-                                      item.product.name,
-                                      wholesaler.business_name,
-                                      item.price,
-                                      item.mrp || item.price
-                                    )
-                                  }
-                                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                                >
-                                  <Plus size={16} />
-                                  Add Proxy
-                                </button>
-                              </div>
+                              <button
+                                onClick={() =>
+                                  handleAddToCart(
+                                    wholesaler.id,
+                                    product.id,
+                                    product.name,
+                                    product.wholesale_price
+                                  )
+                                }
+                                disabled={isInCart}
+                                className={`px-4 py-2 rounded-lg transition-colors ${
+                                  isInCart
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    : "bg-blue-600 text-white hover:bg-blue-700"
+                                }`}
+                              >
+                                {isInCart ? "In Cart" : "Add to Cart"}
+                              </button>
                             </div>
                           </div>
                         );
@@ -423,173 +439,135 @@ export default function FindWholesalersPage() {
           </div>
         )}
 
-        {/* Add Proxy Modal */}
-        {selectedItem && (
+        {/* Cart Modal */}
+        {showCartModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Add Proxy Item
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                Review Purchase Request
               </h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Product</p>
-                  <p className="text-gray-900">{selectedItem.productName}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    Wholesaler
-                  </p>
-                  <p className="text-gray-900">{selectedItem.wholesalerName}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Quantity (display to customers)
-                  </p>
-                  <input
-                    type="number"
-                    value={proxyQuantity}
-                    onChange={(e) => setProxyQuantity(Number(e.target.value))}
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter quantity"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Set to 0 to show unlimited availability
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Your Selling Price
-                  </p>
-                  <input
-                    type="number"
-                    value={proxyPrice}
-                    onChange={(e) => setProxyPrice(Number(e.target.value))}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Wholesaler price: ₹{selectedItem.currentPrice.toFixed(2)}{" "}
-                    (Suggested: ₹{(selectedItem.currentPrice * 1.1).toFixed(2)})
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">MRP</p>
-                  <input
-                    type="number"
-                    value={proxyMrp}
-                    onChange={(e) => setProxyMrp(Number(e.target.value))}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+
+              {/* Products List */}
+              <div className="space-y-3 mb-6">
+                {selectedProducts.map((product) => (
+                  <div
+                    key={product.wholesaler_product_id}
+                    className="border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">
+                        {product.product_name}
+                      </h4>
+                      <p className="text-sm text-gray-700">
+                        ₹{product.price_per_unit.toFixed(2)} per unit
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            updateQuantity(
+                              product.wholesaler_product_id,
+                              product.quantity - 1
+                            )
+                          }
+                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                        >
+                          -
+                        </button>
+                        <span className="w-12 text-center">
+                          {product.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateQuantity(
+                              product.wholesaler_product_id,
+                              product.quantity + 1
+                            )
+                          }
+                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="w-24 text-right font-semibold">
+                        ₹
+                        {(product.quantity * product.price_per_unit).toFixed(2)}
+                      </div>
+                      <button
+                        onClick={() =>
+                          removeFromCart(product.wholesaler_product_id)
+                        }
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex gap-3 mt-6">
+              {/* Total */}
+              <div className="border-t pt-4 mb-6">
+                <div className="flex justify-between text-lg font-semibold">
+                  <span>Total Amount:</span>
+                  <span>
+                    ₹
+                    {selectedProducts
+                      .reduce(
+                        (sum, p) => sum + p.quantity * p.price_per_unit,
+                        0
+                      )
+                      .toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  This is a purchase request. Products will be added to your
+                  inventory after wholesaler approval.
+                </p>
+              </div>
+
+              {/* Delivery Address */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Delivery Address *
+                </label>
+                <textarea
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your complete delivery address"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Any special instructions or requirements"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setSelectedItem(null);
-                    setProxyQuantity(0);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowCartModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={submitProxyItem}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  onClick={submitOrder}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Add to Inventory
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Buy & Add Modal */}
-        {purchaseItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Buy & Add to Inventory
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Product</p>
-                  <p className="text-gray-900">{purchaseItem.productName}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    Wholesaler
-                  </p>
-                  <p className="text-gray-900">{purchaseItem.wholesalerName}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Purchase Quantity
-                  </p>
-                  <input
-                    type="number"
-                    value={purchaseQuantity}
-                    onChange={(e) =>
-                      setPurchaseQuantity(Number(e.target.value))
-                    }
-                    min="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter quantity"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Wholesaler stock should be sufficient for this quantity
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">
-                    Your Selling Price
-                  </p>
-                  <input
-                    type="number"
-                    value={retailerPrice}
-                    onChange={(e) => setRetailerPrice(Number(e.target.value))}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Wholesaler price: ₹{purchaseItem.currentPrice.toFixed(2)}{" "}
-                    (Suggested: ₹{(purchaseItem.currentPrice * 1.15).toFixed(2)}
-                    )
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">MRP</p>
-                  <input
-                    type="number"
-                    value={retailerMrp}
-                    onChange={(e) => setRetailerMrp(Number(e.target.value))}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setPurchaseItem(null);
-                    setPurchaseQuantity(0);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitPurchase}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Buy & Add
+                  Send Purchase Request
                 </button>
               </div>
             </div>
@@ -599,5 +577,3 @@ export default function FindWholesalersPage() {
     </div>
   );
 }
-
-// Purchase Modal would render within the page component scope above; keeping file end unchanged.

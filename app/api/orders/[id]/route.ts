@@ -113,13 +113,10 @@ export async function PATCH(
 
     const updateData: Record<string, string | number | boolean> = {};
 
-    // Retailers/Wholesalers can update status to: confirmed, processing, packed, shipped
+    // Retailers/Wholesalers can update status to: packed, shipped
     // They can also assign delivery person
     if (profile.role === "retailer" || profile.role === "wholesaler") {
-      if (
-        status &&
-        ["confirmed", "processing", "packed", "shipped"].includes(status)
-      ) {
+      if (status && ["packed", "shipped"].includes(status)) {
         updateData.status = status;
 
         // If status is shipped, set estimated delivery to 3 days from now
@@ -130,8 +127,10 @@ export async function PATCH(
         }
       }
 
-      if (delivery_person_id) {
+      const assigningDeliveryPerson = !!delivery_person_id;
+      if (assigningDeliveryPerson) {
         updateData.delivery_person_id = delivery_person_id;
+        // Do NOT change order status to 'assigned' to satisfy DB constraint; we'll still notify as assigned
       }
 
       if (
@@ -181,44 +180,50 @@ export async function PATCH(
 
     // Create notification for customer
     const notificationMessages: Record<string, string> = {
-      confirmed: "Your order has been confirmed",
-      processing: "Your order is being processed",
       packed: "Your order has been packed",
       shipped: "Your order has been shipped",
+      assigned: "A delivery partner has been assigned to your order",
       out_for_delivery: "Your order is out for delivery",
       delivered: "Your order has been delivered",
     };
+    const finalStatus = (updateData.status as string) || status;
+    const didAssign = !!updateData.delivery_person_id && !status;
+    const customerId =
+      (existingOrder as any).customer?.id || (existingOrder as any).customer_id;
 
-    if (status && existingOrder.customer) {
-      await supabase.from("notifications").insert({
-        user_id: existingOrder.customer.id,
-        type: "order",
-        title: "Order Status Update",
-        message: `${notificationMessages[status]} - Order #${existingOrder.order_number}`,
-        link: `/customer/orders/${id}`,
-        metadata: {
-          order_id: id,
-          order_number: existingOrder.order_number,
-          status: status,
-        },
-      });
-
-      // Get customer email
-      const { data: customerProfile } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("id", existingOrder.customer.id)
-        .single();
-
-      // Send email notification
-      if (customerProfile?.email) {
-        await sendOrderStatusEmail({
-          to: customerProfile.email,
-          subject: "Order Status Update - Online-MART",
-          message: notificationMessages[status],
-          orderNumber: existingOrder.order_number,
-          status: status,
+    if ((finalStatus && customerId) || (didAssign && customerId)) {
+      const statusKey = didAssign ? "assigned" : finalStatus;
+      if (statusKey && notificationMessages[statusKey]) {
+        await supabase.from("notifications").insert({
+          user_id: customerId,
+          type: "order",
+          title: "Order Status Update",
+          message: `${notificationMessages[statusKey]} - Order #${existingOrder.order_number}`,
+          link: `/customer/orders/${id}`,
+          metadata: {
+            order_id: id,
+            order_number: existingOrder.order_number,
+            status: statusKey,
+          },
         });
+
+        // Get customer email
+        const { data: customerProfile } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", customerId)
+          .single();
+
+        // Send email notification
+        if (customerProfile?.email) {
+          await sendOrderStatusEmail({
+            to: customerProfile.email,
+            subject: "Order Status Update - Online-MART",
+            message: notificationMessages[statusKey],
+            orderNumber: existingOrder.order_number,
+            status: statusKey,
+          });
+        }
       }
     }
 

@@ -94,21 +94,40 @@ export async function POST(request: NextRequest) {
           mrp: proxy_mrp || wholesalerInventory.mrp,
           is_available: true,
           low_stock_threshold: 5,
-          specifications: {
-            ...(wholesalerInventory.product.specifications || {}),
-            is_proxy: true,
-            wholesaler_id: wholesalerInventory.owner_id,
-            wholesaler_name: wholesalerInventory.owner.full_name,
-            wholesaler_inventory_id: wholesaler_inventory_id,
-          },
         })
         .select()
         .single();
 
       if (proxyErr) throw proxyErr;
 
+      // Create corresponding proxy_listing entry
+      const { data: proxyListing, error: listingErr } = await supabase
+        .from("proxy_listings")
+        .insert({
+          retailer_id: user.id,
+          wholesaler_id: wholesalerInventory.owner_id,
+          wholesaler_inventory_id: wholesaler_inventory_id,
+          quantity_to_list: proxy_quantity || 0,
+          markup_percentage:
+            proxy_price && wholesalerInventory.price
+              ? ((proxy_price - wholesalerInventory.price) /
+                  wholesalerInventory.price) *
+                100
+              : 10,
+          custom_price: proxy_price || null,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (listingErr) {
+        console.error("Error creating proxy listing:", listingErr);
+        // Continue even if proxy listing fails
+      }
+
       return NextResponse.json({
         proxyInventory,
+        proxyListing,
         message: "Proxy item added successfully",
       });
     }
@@ -188,15 +207,6 @@ export async function POST(request: NextRequest) {
               : wholesalerInventory.mrp,
           is_available: true,
           low_stock_threshold: 5,
-          specifications: {
-            ...(wholesalerInventory.product.specifications || {}),
-            source: "wholesale_purchase",
-            wholesaler_id: wholesalerInventory.owner_id,
-            wholesaler_name: wholesalerInventory.owner.full_name,
-            wholesaler_inventory_id: wholesaler_inventory_id,
-            purchased_quantity: qty,
-            purchased_at: new Date().toISOString(),
-          },
         })
         .select()
         .single();
@@ -238,59 +248,122 @@ export async function GET() {
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
     const db = useAdmin ? supabaseAdmin : supabase;
 
-    // Get all wholesalers with their inventory
-    const { data: wholesalers, error: wsErr } = await db
-      .from("wholesalers")
+    // Prefer new wholesaler_products table for retailer browsing
+    const { data: wpRows, error: wpErr } = await db
+      .from("wholesaler_products")
       .select(
         `
-        id,
-        business_name,
-        business_address,
-        business_city,
-        business_state,
-        business_latitude,
-        business_longitude,
-        profiles!id(full_name, email, phone)
+        *,
+        wholesaler:wholesalers!inner (
+          id,
+          business_name,
+          business_address,
+          business_city,
+          business_state,
+          business_latitude,
+          business_longitude,
+          profiles!id(full_name, email, phone)
+        ),
+        category:categories(id, name, slug)
       `
-      );
-    // Show all wholesalers, regardless of verification, as requested
-    if (wsErr) throw wsErr;
+      )
+      .eq("is_available", true)
+      .gt("quantity_in_stock", 0)
+      .order("created_at", { ascending: false });
 
-    // For each wholesaler, get their inventory
-    const wholesalersWithInventory = await Promise.all(
-      (wholesalers || []).map(async (ws) => {
-        const { data: inventory } = await db
-          .from("inventory")
-          .select(
-            `
-            *,
-            product:products(
-              id,
-              name,
-              description,
-              category_id,
-              sku,
-              unit,
-              specifications,
-              categories(name, slug),
-              product_images(image_url, is_primary)
-            ),
-            owner_id,
-            owner_type
+    if (wpErr) throw wpErr;
+
+    // Group products by wholesaler
+    const map = new Map<string, any>();
+    (wpRows || []).forEach((row: any) => {
+      const ws = row.wholesaler;
+      if (!map.has(ws.id)) {
+        map.set(ws.id, {
+          id: ws.id,
+          business_name: ws.business_name,
+          business_address: ws.business_address,
+          business_city: ws.business_city,
+          business_state: ws.business_state,
+          business_latitude: ws.business_latitude,
+          business_longitude: ws.business_longitude,
+          profiles: ws.profiles,
+          inventory: [],
+        });
+      }
+      map.get(ws.id).inventory.push({
+        // normalize to legacy shape expected by UI
+        id: row.id,
+        quantity: row.quantity_in_stock,
+        price: row.wholesale_price,
+        mrp: row.mrp,
+        product: {
+          id: row.product_id || null,
+          name: row.name,
+          description: row.description,
+          category_id: row.category_id,
+          sku: row.sku,
+          unit: row.unit,
+          specifications: row.specifications,
+          categories: row.category,
+          product_images: (row.images || []).map((img: any) => ({
+            image_url: img.url,
+            is_primary: !!img.is_primary,
+          })),
+        },
+      });
+    });
+
+    let wholesalers = Array.from(map.values());
+
+    // Fallback to legacy inventory only if nothing found
+    if (wholesalers.length === 0) {
+      const { data: wholesalersLegacy, error: wsErr } = await db
+        .from("wholesalers")
+        .select(
           `
-          )
-          .eq("owner_id", ws.id)
-          .eq("owner_type", "wholesaler")
-          .eq("is_available", true);
+          id,
+          business_name,
+          business_address,
+          business_city,
+          business_state,
+          business_latitude,
+          business_longitude,
+          profiles!id(full_name, email, phone)
+        `
+        );
+      if (wsErr) throw wsErr;
 
-        return {
-          ...ws,
-          inventory: inventory || [],
-        };
-      })
-    );
+      const legacyWithInventory = await Promise.all(
+        (wholesalersLegacy || []).map(async (ws) => {
+          const { data: inventory } = await db
+            .from("inventory")
+            .select(
+              `
+              *,
+              product:products(
+                id,
+                name,
+                description,
+                category_id,
+                sku,
+                unit,
+                specifications,
+                categories(name, slug),
+                product_images(image_url, is_primary)
+              )
+            `
+            )
+            .eq("owner_id", ws.id)
+            .eq("owner_type", "wholesaler")
+            .eq("is_available", true);
 
-    return NextResponse.json({ wholesalers: wholesalersWithInventory });
+          return { ...ws, inventory: inventory || [] };
+        })
+      );
+      wholesalers = legacyWithInventory;
+    }
+
+    return NextResponse.json({ wholesalers });
   } catch (err: unknown) {
     console.error("PROXY INVENTORY GET ERROR:", err);
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useCartStore } from "@/lib/store/cartStore";
+import { useWishlistStore } from "@/lib/store/wishlistStore";
 import {
   Search,
   ShoppingCart,
@@ -29,6 +30,7 @@ export default function CustomerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { cart, fetchCart } = useCartStore();
+  const { items: wishlistItems, fetchWishlist } = useWishlistStore();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
@@ -42,8 +44,9 @@ export default function CustomerDashboard() {
   useEffect(() => {
     if (user?.id) {
       fetchCart(user.id);
+      fetchWishlist(user.id);
     }
-  }, [user?.id, fetchCart]);
+  }, [user?.id, fetchCart, fetchWishlist]);
 
   const loadData = async () => {
     try {
@@ -117,13 +120,20 @@ export default function CustomerDashboard() {
               <Link
                 href="/customer/wishlist"
                 className="relative hover:text-orange-600 transition"
+                aria-label="Wishlist"
+                title="Wishlist"
               >
                 <Heart size={24} className="text-gray-700" />
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {wishlistItems.length}
+                </span>
               </Link>
 
               <Link
                 href="/customer/cart"
                 className="relative hover:text-orange-600 transition"
+                aria-label="Cart"
+                title="Cart"
               >
                 <ShoppingCart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -178,7 +188,7 @@ export default function CustomerDashboard() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+      <section className="bg-linear-to-r from-orange-500 to-orange-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>

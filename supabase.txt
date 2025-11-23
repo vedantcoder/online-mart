@@ -231,15 +231,17 @@ CREATE TABLE public.profiles (
 CREATE TABLE public.retailer_wholesaler_order_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   order_id uuid NOT NULL,
-  product_id uuid NOT NULL,
+  product_id uuid,
   product_name text NOT NULL,
   quantity integer NOT NULL CHECK (quantity > 0),
   price_per_unit numeric NOT NULL,
   subtotal numeric NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  wholesaler_product_id uuid,
   CONSTRAINT retailer_wholesaler_order_items_pkey PRIMARY KEY (id),
   CONSTRAINT retailer_wholesaler_order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.retailer_wholesaler_orders(id),
-  CONSTRAINT retailer_wholesaler_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+  CONSTRAINT retailer_wholesaler_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT retailer_wholesaler_order_items_wholesaler_product_id_fkey FOREIGN KEY (wholesaler_product_id) REFERENCES public.wholesaler_products(id)
 );
 CREATE TABLE public.retailer_wholesaler_orders (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -288,6 +290,27 @@ CREATE TABLE public.stock_history (
   CONSTRAINT stock_history_pkey PRIMARY KEY (id),
   CONSTRAINT stock_history_inventory_id_fkey FOREIGN KEY (inventory_id) REFERENCES public.inventory(id),
   CONSTRAINT stock_history_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.wholesaler_products (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  wholesaler_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  category_id uuid,
+  sku text,
+  unit text DEFAULT 'piece'::text,
+  wholesale_price numeric NOT NULL,
+  mrp numeric,
+  quantity_in_stock integer NOT NULL DEFAULT 0 CHECK (quantity_in_stock >= 0),
+  low_stock_threshold integer DEFAULT 10,
+  is_available boolean DEFAULT true,
+  images jsonb DEFAULT '[]'::jsonb,
+  specifications jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT wholesaler_products_pkey PRIMARY KEY (id),
+  CONSTRAINT wholesaler_products_wholesaler_id_fkey FOREIGN KEY (wholesaler_id) REFERENCES public.wholesalers(id),
+  CONSTRAINT wholesaler_products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
 CREATE TABLE public.wholesalers (
   id uuid NOT NULL,

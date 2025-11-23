@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // GET - Get all available delivery persons
 export async function GET() {
@@ -25,12 +26,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { data: deliveryPersons, error: dpErr } = await supabase
+    // Use admin client to bypass RLS when listing agents for retailers
+    const { data: deliveryPersons, error: dpErr } = await supabaseAdmin
       .from("delivery_persons")
       .select(
         `
-        *,
-        profiles!id(full_name, email, phone)
+        id,
+        vehicle_type,
+        vehicle_number,
+        license_number,
+        is_available,
+        profiles:profiles!id(id, full_name, email, phone)
       `
       )
       .eq("is_available", true);

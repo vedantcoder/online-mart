@@ -138,23 +138,11 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (paymentMethod === "online") {
-        const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-        if (!stripePublicKey) {
-          throw new Error("Stripe not configured");
-        }
-        const stripe = await loadStripe(stripePublicKey);
-        if (!stripe) throw new Error("Failed to load Stripe");
+        const sessionUrl = data?.stripe?.sessionUrl;
+        if (!sessionUrl) throw new Error("Payment initialization failed");
 
-        const clientSecret = data?.stripe?.clientSecret;
-        if (!clientSecret) throw new Error("Payment initialization failed");
-
-        const { error } = await stripe.confirmPayment({
-          clientSecret,
-          confirmParams: {
-            return_url: `${window.location.origin}/customer/orders/${data.order.id}?payment_success=true`,
-          },
-        });
-        if (error) throw new Error(error.message);
+        // Redirect to Stripe Checkout page
+        window.location.href = sessionUrl;
         return; // Stripe will redirect
       } else {
         toast.success("Order placed with Cash on Delivery!");

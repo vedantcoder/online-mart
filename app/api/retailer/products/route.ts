@@ -107,9 +107,13 @@ export async function PATCH(req: Request) {
       price,
       mrp,
       is_available,
+      low_stock_threshold,
       name,
       description,
       base_price,
+      category_id,
+      unit,
+      image_url,
     } = body || {};
 
     if (!inventory_id) {
@@ -141,12 +145,16 @@ export async function PATCH(req: Request) {
     if (price !== undefined) invUpdates.price = Number(price);
     if (mrp !== undefined) invUpdates.mrp = mrp === null ? null : Number(mrp);
     if (is_available !== undefined) invUpdates.is_available = !!is_available;
+    if (low_stock_threshold !== undefined)
+      invUpdates.low_stock_threshold = Number(low_stock_threshold);
 
     if (Object.keys(invUpdates).length > 1) {
       const { error } = await supabase
         .from("inventory")
         .update(invUpdates)
-        .eq("id", inventory_id);
+        .eq("id", inventory_id)
+        .eq("owner_id", user.id)
+        .eq("owner_type", "retailer");
       if (error) throw error;
     }
 
@@ -155,6 +163,9 @@ export async function PATCH(req: Request) {
     if (description !== undefined) prodUpdates.description = description;
     if (base_price !== undefined)
       prodUpdates.base_price = base_price === null ? null : Number(base_price);
+    if (category_id !== undefined)
+      prodUpdates.category_id = category_id || null;
+    if (unit !== undefined) prodUpdates.unit = unit;
 
     if (Object.keys(prodUpdates).length > 0) {
       prodUpdates.updated_at = new Date().toISOString();
@@ -165,7 +176,74 @@ export async function PATCH(req: Request) {
       if (error) throw error;
     }
 
-    return NextResponse.json({ success: true });
+    // Update primary image if provided
+    if (image_url) {
+      // Clear existing primary and upsert new image as primary
+      const { data: prod } = await supabase
+        .from("inventory")
+        .select("product_id")
+        .eq("id", inventory_id)
+        .single();
+      if (prod?.product_id) {
+        // demote existing primaries
+        await supabase
+          .from("product_images")
+          .update({ is_primary: false })
+          .eq("product_id", prod.product_id);
+
+        // ensure image row exists and set primary
+        const { data: existing } = await supabase
+          .from("product_images")
+          .select("id")
+          .eq("product_id", prod.product_id)
+          .eq("image_url", image_url)
+          .single();
+        if (!existing) {
+          await supabase.from("product_images").insert({
+            product_id: prod.product_id,
+            image_url,
+            is_primary: true,
+            display_order: 0,
+          });
+        } else {
+          await supabase
+            .from("product_images")
+            .update({ is_primary: true })
+            .eq("id", existing.id);
+        }
+      }
+    }
+
+    // Return updated row for confirmation
+    const { data: updated, error: readErr } = await supabase
+      .from("inventory")
+      .select(
+        `
+        id,
+        quantity,
+        price,
+        mrp,
+        low_stock_threshold,
+        is_available,
+        product:products(
+          id,
+          name,
+          description,
+          category_id,
+          base_price,
+          unit,
+          product_images(id, image_url, is_primary, display_order)
+        )
+      `
+      )
+      .eq("id", inventory_id)
+      .eq("owner_id", user.id)
+      .eq("owner_type", "retailer")
+      .single();
+
+    if (readErr) throw readErr;
+
+    return NextResponse.json({ success: true, inventory: updated });
   } catch (err: any) {
     console.error("RETAILER PRODUCTS PATCH ERROR:", err);
     return NextResponse.json(
@@ -176,7 +254,7 @@ export async function PATCH(req: Request) {
 }
 
 /**
- * DELETE -> soft delete a retailer product's inventory (marks is_available=false)
+ * DELETE -> permanently delete a retailer's inventory and the associated product
  */
 export async function DELETE(req: Request) {
   try {
@@ -200,14 +278,49 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const { error } = await supabase
+    // First, get the inventory record to find the product_id
+    const { data: inv, error: invErr } = await supabase
       .from("inventory")
-      .update({ is_available: false, updated_at: new Date().toISOString() })
+      .select("id, product_id")
+      .eq("id", inventoryId)
+      .eq("owner_id", user.id)
+      .eq("owner_type", "retailer")
+      .single();
+
+    if (invErr || !inv) {
+      return NextResponse.json(
+        { error: "Inventory not found" },
+        { status: 404 }
+      );
+    }
+
+    const productId = inv.product_id;
+
+    // Delete the inventory entry first (due to foreign key constraints)
+    const { error: delInvErr } = await supabase
+      .from("inventory")
+      .delete()
       .eq("id", inventoryId)
       .eq("owner_id", user.id)
       .eq("owner_type", "retailer");
 
-    if (error) throw error;
+    if (delInvErr) throw delInvErr;
+
+    // Delete product images
+    const { error: delImgErr } = await supabase
+      .from("product_images")
+      .delete()
+      .eq("product_id", productId);
+
+    if (delImgErr) throw delImgErr;
+
+    // Finally, delete the product
+    const { error: delProdErr } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", productId);
+
+    if (delProdErr) throw delProdErr;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

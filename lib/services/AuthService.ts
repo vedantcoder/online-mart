@@ -72,6 +72,9 @@ export class AuthService {
             role,
             shop_name: data.retailer?.shop_name,
             business_name: data.wholesaler?.business_name,
+            vehicle_type: data.delivery?.vehicle_type,
+            vehicle_number: data.delivery?.vehicle_number,
+            license_number: data.delivery?.license_number,
           },
         },
       });

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { supabase } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Package,
@@ -19,6 +20,7 @@ import { loadStripe } from "@stripe/stripe-js";
 
 interface OrderItem {
   id: string;
+  product_id?: string;
   product_name: string;
   quantity: number;
   price_per_unit: number;
@@ -104,28 +106,13 @@ const PayOrCODButton: React.FC<PayOrCODButtonProps> = ({
         body: JSON.stringify({ order_id: orderId }),
       });
       if (!createRes.ok) throw new Error("Failed to create payment");
-      const data: { clientSecret: string; paymentIntentId: string } =
-        await createRes.json();
-
-      // Load Stripe
-      const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-      if (!stripePublicKey) {
-        throw new Error("Stripe not configured");
-      }
-      const stripe = await loadStripe(stripePublicKey);
-      if (!stripe) throw new Error("Failed to load Stripe");
+      const data: { sessionUrl: string } = await createRes.json();
 
       // Redirect to Stripe Checkout
-      const { error: stripeError } = await stripe.confirmPayment({
-        clientSecret: data.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/customer/orders/${orderId}?payment_success=true`,
-        },
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
+      if (!data.sessionUrl) {
+        throw new Error("Payment initialization failed");
       }
+      window.location.href = data.sessionUrl;
     } catch (e: unknown) {
       setError(
         e instanceof Error ? e.message : "Payment initialization failed"
@@ -163,6 +150,23 @@ export default function OrderDetailPage() {
   const { user, isAuthenticated } = useAuthStore();
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [reviewForms, setReviewForms] = useState<
+    Record<
+      string,
+      {
+        rating: number;
+        title: string;
+        comment: string;
+        open: boolean;
+        submitting: boolean;
+      }
+    >
+  >({});
+  const [orderQueries, setOrderQueries] = useState<any[]>([]);
+  const [newQuery, setNewQuery] = useState({ subject: "", description: "" });
 
   const loadOrder = useCallback(async () => {
     if (!user) {
@@ -175,6 +179,43 @@ export default function OrderDetailPage() {
       if (!res.ok) throw new Error("Failed to fetch order");
       const json = await res.json();
       setOrder(json.order);
+      // After order loads, fetch reviews and queries
+      const items: OrderItem[] = json.order?.items || [];
+      const productIds = items.map((i: any) => i.product_id).filter(Boolean);
+      if (user && productIds.length > 0) {
+        const { data: fb } = await supabase
+          .from("feedback")
+          .select("product_id")
+          .eq("customer_id", user.getId ? user.getId() : user.id)
+          .in("product_id", productIds);
+        const setIds = new Set<string>(
+          (fb || []).map((r: any) => r.product_id)
+        );
+        setReviewedProductIds(setIds);
+        // initialize per-item review forms
+        const rf: Record<string, any> = {};
+        productIds.forEach((pid: string) => {
+          rf[pid] = {
+            rating: 5,
+            title: "",
+            comment: "",
+            open: false,
+            submitting: false,
+          };
+        });
+        setReviewForms(rf);
+      }
+      // Load queries for this order for the customer
+      try {
+        const qRes = await fetch(`/api/queries`, { cache: "no-store" });
+        if (qRes.ok) {
+          const q = await qRes.json();
+          const list = (q.queries || []).filter(
+            (qq: any) => qq.order_id === json.order.id
+          );
+          setOrderQueries(list);
+        }
+      } catch {}
     } catch (error) {
       console.error("Error loading order:", error);
     } finally {
@@ -187,8 +228,13 @@ export default function OrderDetailPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const paymentSuccess = searchParams.get("payment_success");
     const paymentIntentId = searchParams.get("payment_intent");
+    const sessionId = searchParams.get("session_id");
 
-    if (paymentSuccess === "true" && paymentIntentId && params.id) {
+    if (
+      paymentSuccess === "true" &&
+      (paymentIntentId || sessionId) &&
+      params.id
+    ) {
       // Verify payment with backend
       fetch(`/api/payments/stripe/verify`, {
         method: "POST",
@@ -196,6 +242,7 @@ export default function OrderDetailPage() {
         body: JSON.stringify({
           order_id: params.id,
           payment_intent_id: paymentIntentId,
+          session_id: sessionId,
         }),
       })
         .then((res) => {
@@ -224,12 +271,12 @@ export default function OrderDetailPage() {
   }, [isAuthenticated, user, router, params.id, loadOrder]);
 
   const getStatusSteps = () => {
+    // Simplified per spec: pending -> packed -> shipped -> assigned -> out_for_delivery -> delivered
     const allSteps = [
       { key: "pending", label: "Order Placed" },
-      { key: "confirmed", label: "Confirmed" },
-      { key: "processing", label: "Processing" },
       { key: "packed", label: "Packed" },
       { key: "shipped", label: "Shipped" },
+      { key: "assigned", label: "Assigned" },
       { key: "out_for_delivery", label: "Out for Delivery" },
       { key: "delivered", label: "Delivered" },
     ];
@@ -269,6 +316,98 @@ export default function OrderDetailPage() {
   }
 
   const statusSteps = getStatusSteps();
+
+  const toggleReviewForm = (productId: string) => {
+    setReviewForms((prev) => ({
+      ...prev,
+      [productId]: { ...prev[productId], open: !prev[productId]?.open },
+    }));
+  };
+
+  const submitReview = async (
+    productId: string,
+    data: { rating: number; title: string; comment: string }
+  ) => {
+    if (!order) return;
+    try {
+      setReviewForms((prev) => ({
+        ...prev,
+        [productId]: { ...prev[productId], submitting: true },
+      }));
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: productId,
+          order_id: order.id,
+          rating: data.rating,
+          review_text: [data.title, data.comment].filter(Boolean).join(" - "),
+        }),
+      });
+      if (!res.ok) {
+        let msg = "API error";
+        try {
+          const j = await res.json();
+          if (j?.error) msg = j.error;
+        } catch {}
+        throw new Error(msg);
+      }
+      toast.success("Thanks for your review!");
+      setReviewedProductIds(
+        (s) => new Set<string>([...Array.from(s), productId])
+      );
+      setReviewForms((prev) => ({
+        ...prev,
+        [productId]: {
+          rating: 5,
+          title: "",
+          comment: "",
+          open: false,
+          submitting: false,
+        },
+      }));
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to submit review");
+      setReviewForms((prev) => ({
+        ...prev,
+        [productId]: { ...prev[productId], submitting: false },
+      }));
+    }
+  };
+
+  const submitOrderQuery = async () => {
+    if (!newQuery.subject.trim() || !newQuery.description.trim()) {
+      toast.error("Please add subject and description");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/queries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: order?.id,
+          subject: newQuery.subject.trim(),
+          description: newQuery.description.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit query");
+      toast.success("Query submitted. Retailer will contact you.");
+      setNewQuery({ subject: "", description: "" });
+      // refresh list
+      const qRes = await fetch(`/api/queries`, { cache: "no-store" });
+      if (qRes.ok) {
+        const q = await qRes.json();
+        const list = (q.queries || []).filter(
+          (qq: any) => qq.order_id === order?.id
+        );
+        setOrderQueries(list);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to create query");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -377,7 +516,7 @@ export default function OrderDetailPage() {
               </div>
             )}
 
-            {/* Order Items */}
+            {/* Order Items + Reviews */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 <Package size={20} className="inline mr-2" />
@@ -404,6 +543,112 @@ export default function OrderDetailPage() {
                         </p>
                       </div>
                     </div>
+                    {/* Write Review - available after delivery */}
+                    {order.status === "delivered" && item.product_id && (
+                      <div className="mt-3">
+                        {reviewedProductIds.has(item.product_id) ? (
+                          <span className="text-sm text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">
+                            Reviewed
+                          </span>
+                        ) : (
+                          <div>
+                            <button
+                              onClick={() => toggleReviewForm(item.product_id!)}
+                              className="text-sm text-orange-700 hover:text-orange-800 font-medium"
+                            >
+                              {reviewForms[item.product_id!]?.open
+                                ? "Close Review"
+                                : "Write a Review"}
+                            </button>
+                            {reviewForms[item.product_id!]?.open && (
+                              <div className="mt-2 bg-gray-50 p-3 rounded">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      onClick={() =>
+                                        setReviewForms((prev) => ({
+                                          ...prev,
+                                          [item.product_id!]: {
+                                            ...prev[item.product_id!],
+                                            rating: s,
+                                          },
+                                        }))
+                                      }
+                                      className="text-yellow-400"
+                                    >
+                                      {s <=
+                                      (reviewForms[item.product_id!]?.rating ||
+                                        5)
+                                        ? "★"
+                                        : "☆"}
+                                    </button>
+                                  ))}
+                                </div>
+                                <input
+                                  type="text"
+                                  placeholder="Title (optional)"
+                                  value={
+                                    reviewForms[item.product_id!]?.title || ""
+                                  }
+                                  onChange={(e) =>
+                                    setReviewForms((prev) => ({
+                                      ...prev,
+                                      [item.product_id!]: {
+                                        ...prev[item.product_id!],
+                                        title: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="w-full mb-2 px-3 py-2 border rounded"
+                                />
+                                <textarea
+                                  rows={3}
+                                  placeholder="Your review"
+                                  value={
+                                    reviewForms[item.product_id!]?.comment || ""
+                                  }
+                                  onChange={(e) =>
+                                    setReviewForms((prev) => ({
+                                      ...prev,
+                                      [item.product_id!]: {
+                                        ...prev[item.product_id!],
+                                        comment: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="w-full mb-2 px-3 py-2 border rounded"
+                                />
+                                <button
+                                  disabled={
+                                    reviewForms[item.product_id!]?.submitting
+                                  }
+                                  onClick={() =>
+                                    submitReview(item.product_id!, {
+                                      rating:
+                                        reviewForms[item.product_id!]?.rating ||
+                                        5,
+                                      title:
+                                        reviewForms[item.product_id!]?.title ||
+                                        "",
+                                      comment:
+                                        reviewForms[item.product_id!]
+                                          ?.comment || "",
+                                    })
+                                  }
+                                  className="px-4 py-2 bg-orange-600 text-white rounded disabled:opacity-50"
+                                >
+                                  {reviewForms[item.product_id!]?.submitting
+                                    ? "Submitting..."
+                                    : "Submit Review"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -445,11 +690,32 @@ export default function OrderDetailPage() {
                 Delivery Address
               </h2>
               <div className="text-gray-600 space-y-1">
-                <p>{order.delivery_address.street}</p>
                 <p>
-                  {order.delivery_address.city}, {order.delivery_address.state}
+                  {order.delivery_address.street ||
+                    order.delivery_address["street_address"] ||
+                    ""}
                 </p>
-                <p>PIN: {order.delivery_address.pincode}</p>
+                <p>
+                  {order.delivery_address.city ||
+                    order.delivery_address["city"] ||
+                    ""}
+                  {order.delivery_address.state ||
+                  order.delivery_address["state"]
+                    ? `, ${
+                        order.delivery_address.state ||
+                        order.delivery_address["state"]
+                      }`
+                    : ""}
+                </p>
+                <p>
+                  {order.delivery_address.pincode ||
+                  order.delivery_address["pincode"]
+                    ? `PIN: ${
+                        order.delivery_address.pincode ||
+                        order.delivery_address["pincode"]
+                      }`
+                    : ""}
+                </p>
               </div>
             </div>
 
@@ -562,14 +828,17 @@ export default function OrderDetailPage() {
                     {order.payment_status.toUpperCase()}
                   </span>
                 </div>
-                {order.payment_method && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Method</span>
-                    <span className="font-medium text-gray-900 capitalize">
-                      {order.payment_method.replace(/_/g, " ")}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Method</span>
+                  <span className="font-medium text-gray-900">
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 border border-gray-200">
+                      {order.payment_method === "cash_on_delivery" ||
+                      order.payment_method === "cod"
+                        ? "Cash on Delivery"
+                        : "Online Payment"}
                     </span>
-                  </div>
-                )}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount</span>
                   <span className="font-medium text-gray-900">
@@ -592,6 +861,68 @@ export default function OrderDetailPage() {
                     />
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Order Queries */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Order Queries
+              </h2>
+              {orderQueries.length > 0 && (
+                <div className="mb-4 space-y-3">
+                  {orderQueries.map((q) => (
+                    <div key={q.id} className="border rounded p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-gray-900">{q.subject}</p>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border ${
+                            q.status === "resolved"
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                          }`}
+                        >
+                          {q.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-1">
+                        {q.description}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Raised on {new Date(q.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Subject"
+                  value={newQuery.subject}
+                  onChange={(e) =>
+                    setNewQuery((p) => ({ ...p, subject: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                />
+                <textarea
+                  rows={3}
+                  placeholder="Describe your issue"
+                  value={newQuery.description}
+                  onChange={(e) =>
+                    setNewQuery((p) => ({ ...p, description: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                />
+                <button
+                  onClick={submitOrderQuery}
+                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                >
+                  Submit Query
+                </button>
+                <p className="text-xs text-gray-500">
+                  Retailer will contact you regarding your queries!
+                </p>
               </div>
             </div>
           </div>

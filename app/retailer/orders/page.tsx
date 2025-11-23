@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
@@ -12,6 +12,7 @@ import {
   Truck,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import Image from "next/image";
 
 interface OrderItem {
   id: string;
@@ -26,19 +27,23 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
+  delivery_person_id?: string | null;
   payment_status: string;
   payment_method: string;
+  payment?: { method?: string };
   total_amount: number;
   created_at: string;
   estimated_delivery: string | null;
   actual_delivery: string | null;
   delivery_address: Record<string, string>;
+  customer_name?: string;
   customer: {
     id: string;
     street_address: string;
     city: string;
     state: string;
     pincode: string;
+    profiles?: { full_name?: string };
   };
   delivery_person: {
     id: string;
@@ -60,6 +65,15 @@ interface DeliveryPerson {
   };
 }
 
+interface CustomerQuery {
+  id: string;
+  order_id: string;
+  subject: string;
+  description: string;
+  status: string;
+  created_at: string;
+}
+
 export default function RetailerOrdersPage() {
   const router = useRouter();
   const { user, isLoading, initialize } = useAuthStore();
@@ -68,6 +82,37 @@ export default function RetailerOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [deliveryPersons, setDeliveryPersons] = useState<DeliveryPerson[]>([]);
   const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState("");
+  const [queriesByOrder, setQueriesByOrder] = useState<
+    Record<string, CustomerQuery[]>
+  >({});
+
+  type DeliveryAddr = {
+    street?: string;
+    street_address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+
+  const renderOrderAddress = (
+    addr: unknown,
+    customer?: Order["customer"]
+  ): string => {
+    const a = (addr || {}) as DeliveryAddr;
+    const street = a.street || a.street_address;
+    const city = a.city;
+    const state = a.state;
+    const pin = a.pincode;
+    if (street || city || state || pin) {
+      return `${street ?? ""}${city || state ? ", " : ""}${city ?? ""}$${""}${
+        state ? `, ${state}` : ""
+      }${pin ? ` - ${pin}` : ""}`.replace("$", "");
+    }
+    if (customer) {
+      return `${customer.street_address}, ${customer.city}, ${customer.state} - ${customer.pincode}`;
+    }
+    return "";
+  };
 
   useEffect(() => {
     initialize();
@@ -79,27 +124,33 @@ export default function RetailerOrdersPage() {
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (!isLoading && user && user.getRole() === "retailer") {
-      loadOrders();
-      loadDeliveryPersons();
-    }
-  }, [isLoading, user]);
+  // Moved below loadOrders definition to avoid TDZ error
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/orders", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load orders");
       const data = await res.json();
-      setOrders(data.orders || []);
+      const list: Order[] = data.orders || [];
+      setOrders(list);
+      // Load queries for these orders
+      loadQueries(list.map((o) => o.id));
     } catch (error) {
       console.error("Load orders error:", error);
       toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Run after loadOrders is defined
+  useEffect(() => {
+    if (!isLoading && user && user.getRole() === "retailer") {
+      loadOrders();
+      loadDeliveryPersons();
+    }
+  }, [isLoading, user, loadOrders]);
 
   const loadDeliveryPersons = async () => {
     try {
@@ -109,6 +160,25 @@ export default function RetailerOrdersPage() {
       setDeliveryPersons(data.deliveryPersons || []);
     } catch (error) {
       console.error("Load delivery persons error:", error);
+    }
+  };
+
+  const loadQueries = async (orderIds: string[]) => {
+    try {
+      const res = await fetch("/api/queries", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const all: CustomerQuery[] = (data.queries || []) as CustomerQuery[];
+      const map: Record<string, CustomerQuery[]> = {};
+      orderIds.forEach((id) => (map[id] = []));
+      all.forEach((q) => {
+        if (map[q.order_id] !== undefined) {
+          map[q.order_id].push(q);
+        }
+      });
+      setQueriesByOrder(map);
+    } catch (e) {
+      console.error("Load queries error:", e);
     }
   };
 
@@ -128,6 +198,23 @@ export default function RetailerOrdersPage() {
     } catch (error) {
       console.error("Update status error:", error);
       toast.error("Failed to update order status");
+    }
+  };
+
+  const resolveQuery = async (queryId: string) => {
+    try {
+      const res = await fetch("/api/queries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: queryId, status: "resolved" }),
+      });
+      if (!res.ok) throw new Error("Failed to resolve query");
+      toast.success("Marked resolved");
+      // refresh queries for current orders
+      loadQueries(orders.map((o) => o.id));
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update query");
     }
   };
 
@@ -170,11 +257,10 @@ export default function RetailerOrdersPage() {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
+  // Simplified flow per spec: retailer only sets packed, shipped, assigns agent (assigned auto when agent chosen)
   const getNextStatus = (currentStatus: string): string[] => {
     const statusFlow: Record<string, string[]> = {
-      pending: ["confirmed"],
-      confirmed: ["processing"],
-      processing: ["packed"],
+      pending: ["packed"], // collapse confirm+processing into packed
       packed: ["shipped"],
     };
     return statusFlow[currentStatus] || [];
@@ -238,14 +324,28 @@ export default function RetailerOrdersPage() {
                       Placed on{" "}
                       {new Date(order.created_at).toLocaleDateString()}
                     </p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      Customer:{" "}
+                      {order.customer_name ||
+                        order.customer?.profiles?.full_name ||
+                        "Unknown Customer"}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-gray-900">
                       ₹{order.total_amount.toFixed(2)}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      Payment: {order.payment_status}
-                    </p>
+                    <div className="flex items-center gap-2 justify-end mt-1">
+                      <span className="text-sm text-gray-600">
+                        Payment: {order.payment_status}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+                        {order.payment_method === "cash_on_delivery" ||
+                        order.payment?.method === "cod"
+                          ? "Cash on Delivery"
+                          : "Online Payment"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -255,9 +355,11 @@ export default function RetailerOrdersPage() {
                     <div key={item.id} className="flex items-center gap-4 py-2">
                       <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden shrink-0">
                         {item.product_image ? (
-                          <img
+                          <Image
                             src={item.product_image}
                             alt={item.product_name}
+                            width={64}
+                            height={64}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -282,16 +384,60 @@ export default function RetailerOrdersPage() {
                   ))}
                 </div>
 
-                {/* Delivery Address */}
+                {/* Delivery Address - prefer order.delivery_address, fallback to customer profile fields */}
                 <div className="mb-4">
                   <h4 className="font-semibold text-gray-900 mb-2">
                     Delivery Address
                   </h4>
                   <p className="text-gray-700">
-                    {order.customer.street_address}, {order.customer.city},{" "}
-                    {order.customer.state} - {order.customer.pincode}
+                    {renderOrderAddress(order.delivery_address, order.customer)}
                   </p>
                 </div>
+
+                {/* Customer Queries for this Order */}
+                {queriesByOrder[order.id] &&
+                  queriesByOrder[order.id].length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">
+                        Customer Queries
+                      </h4>
+                      <div className="space-y-2">
+                        {queriesByOrder[order.id].map((q) => (
+                          <div
+                            key={q.id}
+                            className="border rounded p-3 flex items-start justify-between gap-3"
+                          >
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {q.subject}
+                              </p>
+                              <p className="text-sm text-gray-700">
+                                {q.description}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {q.status} •{" "}
+                                {new Date(q.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="shrink-0">
+                              {q.status !== "resolved" ? (
+                                <button
+                                  onClick={() => resolveQuery(q.id)}
+                                  className="px-3 py-1 text-sm bg-green-600 text-white rounded"
+                                >
+                                  Mark Resolved
+                                </button>
+                              ) : (
+                                <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded">
+                                  Resolved
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                 {/* Delivery Person */}
                 {order.delivery_person && (
@@ -309,33 +455,42 @@ export default function RetailerOrdersPage() {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3">
-                  {getNextStatus(order.status).map((nextStatus) => (
-                    <button
-                      key={nextStatus}
-                      onClick={() => updateOrderStatus(order.id, nextStatus)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Mark as {nextStatus.replace(/_/g, " ")}
-                    </button>
-                  ))}
+                  {getNextStatus(order.status).map((nextStatus, idx) => {
+                    // Deduplicate accidental multiple renders
+                    const key = `${order.id}-${nextStatus}-${idx}`;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => updateOrderStatus(order.id, nextStatus)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Mark as {nextStatus.replace(/_/g, " ")}
+                      </button>
+                    );
+                  })}
 
-                  {order.status === "packed" && !order.delivery_person && (
-                    <button
-                      onClick={() => setSelectedOrder(order)}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      Assign Delivery Agent
-                    </button>
-                  )}
+                  {order.status === "shipped" &&
+                    !order.delivery_person &&
+                    !order.delivery_person_id && (
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        Assign Delivery Agent
+                      </button>
+                    )}
 
-                  {order.status === "packed" && order.delivery_person && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, "shipped")}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Mark as Shipped
-                    </button>
-                  )}
+                  {/* Shipped action is already provided by getNextStatus; avoid duplicate button */}
+
+                  {order.status === "shipped" &&
+                    (order.delivery_person || order.delivery_person_id) && (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg cursor-not-allowed"
+                      >
+                        Awaiting Pickup
+                      </button>
+                    )}
                 </div>
               </div>
             ))}
@@ -365,7 +520,7 @@ export default function RetailerOrdersPage() {
                   <select
                     value={selectedDeliveryPerson}
                     onChange={(e) => setSelectedDeliveryPerson(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">Choose an agent...</option>
                     {deliveryPersons.map((dp) => (

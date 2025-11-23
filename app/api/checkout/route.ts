@@ -53,7 +53,8 @@ export async function POST(req: Request) {
     }
 
     // Get customer's cart with items
-    const { data: cart, error: cartErr } = await supabase
+    // Use admin client to bypass RLS issues with deep joins (inventory, etc.)
+    const { data: cart, error: cartErr } = await supabaseAdmin
       .from("carts")
       .select(
         `
@@ -197,10 +198,56 @@ export async function POST(req: Request) {
       );
     }
 
-    // Clear the cart
-    await supabase.from("cart_items").delete().eq("cart_id", cart.id);
+    // For COD orders, decrement retailer inventory now and clear cart
+    if (isCOD) {
+      try {
+        // Validate sufficient stock and decrement per item
+        for (const item of orderItems) {
+          // Check current stock
+          const { data: invRow } = await supabaseAdmin
+            .from("inventory")
+            .select("id, quantity")
+            .eq("product_id", item.product_id)
+            .eq("owner_id", sellerId)
+            .eq("owner_type", "retailer")
+            .single();
 
-    // If online, create Stripe PaymentIntent and return clientSecret
+          const currentQty = Number(invRow?.quantity ?? 0);
+          if (currentQty < item.quantity) {
+            // If insufficient, fail order creation politely
+            throw new Error(
+              `Insufficient stock for product ${item.product_name}`
+            );
+          }
+
+          const newQty = currentQty - item.quantity;
+          await supabaseAdmin
+            .from("inventory")
+            .update({
+              quantity: newQty,
+              is_available: newQty > 0,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("product_id", item.product_id)
+            .eq("owner_id", sellerId)
+            .eq("owner_type", "retailer");
+        }
+      } catch (e) {
+        // Rollback order and items on stock failure
+        await supabaseAdmin
+          .from("order_items")
+          .delete()
+          .eq("order_id", order.id);
+        await supabaseAdmin.from("orders").delete().eq("id", order.id);
+        const msg = e instanceof Error ? e.message : "Stock update failed";
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+
+      // Clear the cart after successful stock decrement
+      await supabaseAdmin.from("cart_items").delete().eq("cart_id", cart.id);
+    }
+
+    // If online, create Stripe Checkout Session
     if (isOnline) {
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
       if (!stripeSecretKey) {
@@ -209,23 +256,48 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      const stripe = new Stripe(stripeSecretKey);
-      const amountInSmallestUnit = Math.round(Number(order.total_amount) * 100);
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountInSmallestUnit,
-        currency: "inr",
+      const stripe = new Stripe(stripeSecretKey, {
+        apiVersion: "2025-11-17.clover",
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: cart.items.map((item: any) => {
+          const product = Array.isArray(item.product)
+            ? item.product[0]
+            : item.product;
+          const primaryImage = product?.images?.find(
+            (img: any) => img.is_primary
+          );
+          return {
+            price_data: {
+              currency: "inr",
+              product_data: {
+                name: product?.name || "Product",
+                images: primaryImage?.image_url
+                  ? [primaryImage.image_url]
+                  : undefined,
+              },
+              unit_amount: Math.round(item.price_at_addition * 100),
+            },
+            quantity: item.quantity,
+          };
+        }),
+        mode: "payment",
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders/${order.id}?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/checkout?canceled=true`,
         metadata: {
           order_id: order.id,
           order_number: order.order_number || "",
         },
-        automatic_payment_methods: { enabled: true },
+        customer_email: user.email,
       });
 
       await supabaseAdmin
         .from("orders")
         .update({
           payment_gateway: "stripe",
-          payment_gateway_order_id: paymentIntent.id,
+          payment_gateway_order_id: session.id, // Store session ID initially
         })
         .eq("id", order.id);
 
@@ -239,8 +311,8 @@ export async function POST(req: Request) {
           payment_status: order.payment_status,
         },
         stripe: {
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
+          sessionUrl: session.url,
+          sessionId: session.id,
         },
       });
     }

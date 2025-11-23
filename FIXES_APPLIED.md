@@ -228,3 +228,44 @@ If issues persist, check:
 ## Additional Documentation
 
 See `SETUP_INSTRUCTIONS.md` for detailed setup guide.
+
+# Checkout & Cart Fixes Applied
+
+## Problem: "Cart is empty" Error During Checkout
+Users were encountering a "Cart is empty" error when attempting to place an order, even though items were visible in the cart page.
+
+**Root Cause:**
+The `app/api/checkout/route.ts` endpoint uses a deep join query to fetch the cart, its items, and the related product/inventory details.
+```typescript
+items:cart_items(..., product:products(..., inventory(owner_id)))
+```
+Row Level Security (RLS) policies on the `inventory` table (or potentially `products`) were preventing the server-side client (which runs as the authenticated user) from fetching the nested data. This caused the `cart.items` array to appear empty or incomplete to the checkout logic.
+
+**Solution:**
+Updated `app/api/checkout/route.ts` to use `supabaseAdmin` for fetching the cart. This bypasses RLS checks for this specific server-side operation, ensuring that the cart items and necessary seller information are retrieved correctly to create the order.
+
+## Problem: Cart Not Clearing After Order
+There was a risk that carts wouldn't be cleared after a successful order if the user lacked permission to delete rows from `cart_items`.
+
+**Solution:**
+1. Updated `app/api/checkout/route.ts` to use `supabaseAdmin` when clearing the cart for Cash on Delivery (COD) orders.
+2. Updated `app/api/payments/stripe/verify/route.ts` to use `supabaseAdmin` when clearing the cart for Online orders (after successful payment verification).
+3. Also updated `app/api/payments/stripe/verify/route.ts` to use `supabaseAdmin` for updating the order status to "completed", ensuring the payment flow isn't blocked by RLS.
+
+## Problem: "Processing Error" During Payment
+Users encountered a "processing error" (or generic failure) when clicking "Pay Online" or "Place Order" with online payment selected.
+
+**Root Cause:**
+The frontend was using `stripe.confirmPayment()` which requires Stripe Elements (like `<PaymentElement />`) to be mounted on the page to collect card details. However, the checkout page did not render any Stripe Elements, causing the confirmation to fail immediately.
+
+**Solution:**
+Switched the payment flow to use **Stripe Checkout Sessions** (Hosted Payment Page).
+1.  **Backend:** Updated `api/checkout` and `api/payments/stripe/create` to create a `Stripe Checkout Session` instead of a `PaymentIntent`.
+2.  **Frontend:** Updated `customer/checkout` and `customer/orders/[id]` to receive the `sessionId` and redirect the user to the Stripe hosted page using `stripe.redirectToCheckout()`.
+3.  **Verification:** Updated `api/payments/stripe/verify` to validate the payment using the `session_id` returned in the URL after redirection.
+
+This ensures a secure and complete payment UI provided by Stripe without requiring complex client-side Elements integration.
+
+## Files Modified
+- `app/api/checkout/route.ts`
+- `app/api/payments/stripe/verify/route.ts`

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useCartStore } from "@/lib/store/cartStore";
+import { useWishlistStore } from "@/lib/store/wishlistStore";
 import {
   Trash2,
   Plus,
@@ -25,14 +26,16 @@ export default function CartPage() {
   const { user, logout } = useAuthStore();
   const { cart, isLoading, fetchCart, updateItem, removeItem, clearCart } =
     useCartStore();
+  const { items: wishlistItems, fetchWishlist } = useWishlistStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const userId = user ? (user as unknown as { id?: string }).id : undefined;
   useEffect(() => {
     if (userId) {
       fetchCart(userId);
+      fetchWishlist(userId);
     }
-  }, [userId, fetchCart]);
+  }, [userId, fetchCart, fetchWishlist]);
 
   const handleUpdateQuantity = async (
     cartId: string,
@@ -98,6 +101,10 @@ export default function CartPage() {
       (sum, item) => sum + item.price_at_addition * item.quantity,
       0
     ) || 0;
+  const taxRate = 0.18;
+  const taxAmount = subtotal * taxRate;
+  const shipping = subtotal >= 500 ? 0 : 50;
+  const total = subtotal + taxAmount + shipping;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,10 +148,12 @@ export default function CartPage() {
               <Link
                 href="/customer/wishlist"
                 className="relative hover:text-orange-600 transition"
+                aria-label="Wishlist"
+                title="Wishlist"
               >
                 <Heart size={24} className="text-gray-700" />
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  0
+                  {wishlistItems.length}
                 </span>
               </Link>
 
@@ -367,15 +376,23 @@ export default function CartPage() {
                     <span>₹{subtotal.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
+                    <span>GST (18%)</span>
+                    <span>₹{taxAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
                     <span>Shipping</span>
-                    <span className="text-green-600 font-medium">Free</span>
+                    {shipping === 0 ? (
+                      <span className="text-green-600 font-medium">Free</span>
+                    ) : (
+                      <span>₹{shipping.toLocaleString("en-IN")}</span>
+                    )}
                   </div>
                   <div className="border-t border-gray-200 pt-4 flex justify-between items-end">
                     <span className="font-bold text-lg text-gray-900">
                       Total
                     </span>
                     <span className="font-bold text-2xl text-gray-900">
-                      ₹{subtotal.toLocaleString("en-IN")}
+                      ₹{total.toLocaleString("en-IN")}
                     </span>
                   </div>
                 </div>

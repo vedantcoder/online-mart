@@ -52,15 +52,8 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  // const [quantity, setQuantity] = useState(0); // Removed local quantity state
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
-  const [feedbackData, setFeedbackData] = useState({
-    rating: 5,
-    title: "",
-    comment: "",
-  });
-  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -77,7 +70,10 @@ export default function ProductDetailPage() {
   const loadProduct = async () => {
     try {
       setLoading(true);
-      const productData = await ProductService.getProductById(productId);
+      const productData = await ProductService.getProductById(
+        productId,
+        "customer"
+      );
 
       if (!productData) {
         toast.error("Product not found");
@@ -89,6 +85,16 @@ export default function ProductDetailPage() {
       productData.inventory = (productData.inventory || []).sort(
         (a: any, b: any) => Number(a.price) - Number(b.price)
       );
+
+      // Set default selected seller to the one with lowest price and stock
+      if (productData.inventory && productData.inventory.length > 0) {
+        const availableSeller = productData.inventory.find(
+          (inv: any) => inv.quantity > 0
+        );
+        setSelectedSellerId(
+          availableSeller?.owner_id || productData.inventory[0].owner_id
+        );
+      }
 
       setProduct(productData);
     } catch (error) {
@@ -128,6 +134,9 @@ export default function ProductDetailPage() {
       const formattedFeedbacks = data.map((fb: any) => ({
         ...fb,
         customer_name: fb.customers?.profiles?.full_name || "Anonymous",
+        comment: fb.review_text ?? fb.comment ?? "",
+        is_verified_purchase:
+          fb.verified_purchase ?? fb.is_verified_purchase ?? false,
       }));
 
       setFeedbacks(formattedFeedbacks);
@@ -208,57 +217,6 @@ export default function ProductDetailPage() {
     return cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   };
 
-  const handleSubmitFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!user) {
-      toast.error("Please login to submit feedback");
-      return;
-    }
-
-    if (feedbackData.rating < 1 || feedbackData.rating > 5) {
-      toast.error("Rating must be between 1 and 5");
-      return;
-    }
-
-    try {
-      setSubmittingFeedback(true);
-
-      // Get customer_id from user
-      const { data: customerData } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("id", user.id)
-        .single();
-
-      if (!customerData) {
-        toast.error("Customer profile not found");
-        return;
-      }
-
-      const { error } = await supabase.from("feedback").insert({
-        customer_id: customerData.id,
-        product_id: productId,
-        rating: feedbackData.rating,
-        title: feedbackData.title || null,
-        comment: feedbackData.comment || null,
-        is_verified_purchase: false, // Set to true if order verification is implemented
-      });
-
-      if (error) throw error;
-
-      toast.success("Feedback submitted successfully!");
-      setShowFeedbackForm(false);
-      setFeedbackData({ rating: 5, title: "", comment: "" });
-      loadFeedbacks();
-    } catch (error) {
-      console.error("Failed to submit feedback:", error);
-      toast.error("Failed to submit feedback");
-    } finally {
-      setSubmittingFeedback(false);
-    }
-  };
-
   const getAverageRating = () => {
     if (feedbacks.length === 0) return 0;
     const sum = feedbacks.reduce((acc, fb) => acc + fb.rating, 0);
@@ -304,7 +262,11 @@ export default function ProductDetailPage() {
     );
   }
 
-  const inv = product.inventory?.[0];
+  // Get selected seller's inventory or first available
+  const inv = selectedSellerId
+    ? product.inventory?.find((i: any) => i.owner_id === selectedSellerId)
+    : product.inventory?.[0];
+
   const totalStock = (product.inventory || []).reduce(
     (sum: number, row: any) => sum + Number(row.quantity || 0),
     0
@@ -503,6 +465,62 @@ export default function ProductDetailPage() {
               </span>
             </div>
 
+            {/* Seller Selection - Show if multiple sellers available */}
+            {product.inventory && product.inventory.length > 1 && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  Available from {product.inventory.length} sellers:
+                </h3>
+                <div className="space-y-2">
+                  {product.inventory.map((invItem: any) => {
+                    const sellerName =
+                      invItem.retailer?.shop_name || "Retailer";
+                    const isSelected = invItem.owner_id === selectedSellerId;
+                    return (
+                      <button
+                        key={invItem.id}
+                        onClick={() => setSelectedSellerId(invItem.owner_id)}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 bg-white hover:border-blue-300"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {sellerName}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {invItem.owner_type === "retailer"
+                                ? "🏪 Retailer"
+                                : "📦 Wholesaler"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-900">
+                              ₹{Number(invItem.price).toLocaleString("en-IN")}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {invItem.quantity > 0 ? (
+                                <span className="text-green-600">
+                                  {invItem.quantity} in stock
+                                </span>
+                              ) : (
+                                <span className="text-red-600">
+                                  Out of stock
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Price */}
             {inv && (
               <div className="mb-6">
@@ -610,108 +628,7 @@ export default function ProductDetailPage() {
             <h2 className="text-2xl font-bold text-gray-900">
               Ratings & Reviews
             </h2>
-            <button
-              onClick={() => setShowFeedbackForm(!showFeedbackForm)}
-              className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium"
-            >
-              Write a Review
-            </button>
           </div>
-
-          {/* Feedback Form */}
-          {showFeedbackForm && (
-            <form
-              onSubmit={handleSubmitFeedback}
-              className="bg-gray-50 rounded-lg p-6 mb-8"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Share Your Experience
-              </h3>
-
-              {/* Rating */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rating *
-                </label>
-                <div className="flex items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() =>
-                        setFeedbackData({ ...feedbackData, rating: star })
-                      }
-                      className="transition"
-                    >
-                      <Star
-                        size={32}
-                        className={
-                          star <= feedbackData.rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300"
-                        }
-                      />
-                    </button>
-                  ))}
-                  <span className="ml-2 text-gray-600 font-medium">
-                    {feedbackData.rating} / 5
-                  </span>
-                </div>
-              </div>
-
-              {/* Title */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Review Title
-                </label>
-                <input
-                  type="text"
-                  value={feedbackData.title}
-                  onChange={(e) =>
-                    setFeedbackData({ ...feedbackData, title: e.target.value })
-                  }
-                  placeholder="Summarize your experience"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-gray-900"
-                />
-              </div>
-
-              {/* Comment */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Review
-                </label>
-                <textarea
-                  value={feedbackData.comment}
-                  onChange={(e) =>
-                    setFeedbackData({
-                      ...feedbackData,
-                      comment: e.target.value,
-                    })
-                  }
-                  placeholder="Tell us what you think about this product..."
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-gray-900"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={submittingFeedback}
-                  className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {submittingFeedback ? "Submitting..." : "Submit Review"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFeedbackForm(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
 
           {/* Rating Summary */}
           {feedbacks.length > 0 && (
@@ -768,9 +685,7 @@ export default function ProductDetailPage() {
           <div className="space-y-6">
             {feedbacks.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  No reviews yet. Be the first to review this product!
-                </p>
+                <p className="text-gray-500 text-lg">No reviews yet.</p>
               </div>
             ) : (
               feedbacks.map((feedback) => (

@@ -463,7 +463,7 @@ export default function RegisterPage() {
                         type="text"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="Street address"
                       />
                     </div>
@@ -499,7 +499,7 @@ export default function RegisterPage() {
                         type="text"
                         value={pincode}
                         onChange={(e) => setPincode(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                       />
                     </div>
                   </>
@@ -515,7 +515,7 @@ export default function RegisterPage() {
                         type="text"
                         value={shopName}
                         onChange={(e) => setShopName(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="Your Shop Name"
                       />
                     </div>
@@ -527,7 +527,7 @@ export default function RegisterPage() {
                         type="text"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                       />
                     </div>
                     <div className="grid grid-cols-3 gap-4">
@@ -578,7 +578,7 @@ export default function RegisterPage() {
                         type="text"
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="Your Business Name"
                       />
                     </div>
@@ -590,7 +590,7 @@ export default function RegisterPage() {
                         type="text"
                         value={gstNumber}
                         onChange={(e) => setGstNumber(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="22AAAAA0000A1Z5"
                       />
                     </div>
@@ -602,7 +602,7 @@ export default function RegisterPage() {
                         type="text"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                       />
                     </div>
                     <div className="grid grid-cols-3 gap-4">
@@ -660,7 +660,7 @@ export default function RegisterPage() {
                               | "truck"
                           )
                         }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-white"
                       >
                         <option value="bike">Bike</option>
                         <option value="scooter">Scooter</option>
@@ -676,7 +676,7 @@ export default function RegisterPage() {
                         type="text"
                         value={vehicleNumber}
                         onChange={(e) => setVehicleNumber(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="DL 01 AB 1234"
                       />
                     </div>
@@ -688,7 +688,7 @@ export default function RegisterPage() {
                         type="text"
                         value={licenseNumber}
                         onChange={(e) => setLicenseNumber(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         placeholder="DL1234567890"
                       />
                     </div>

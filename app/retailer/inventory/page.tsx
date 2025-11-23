@@ -149,10 +149,10 @@ export default function InventoryPage() {
                       Price
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      Added
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Added
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -188,48 +188,13 @@ export default function InventoryPage() {
                       <td className="px-6 py-4 text-right text-sm text-gray-700">
                         ₹{Number(p.base_price ?? 0).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-500">
-                        {p.created_at
-                          ? new Date(p.created_at).toLocaleString()
-                          : "-"}
-                      </td>
                       <td className="px-6 py-4 text-right text-sm text-gray-700">
                         <button
-                          disabled={savingId === p.id}
-                          onClick={async () => {
+                          onClick={() => {
                             if (!p.inventory_id) return;
-                            const input = window.prompt(
-                              "Update stock quantity",
-                              String(p.stock ?? 0)
+                            router.push(
+                              `/retailer/inventory/${p.inventory_id}`
                             );
-                            if (input === null) return;
-                            const qty = Number(input);
-                            if (Number.isNaN(qty))
-                              return alert("Invalid quantity");
-                            try {
-                              setSavingId(p.id);
-                              const res = await fetch(
-                                "/api/retailer/products",
-                                {
-                                  method: "PATCH",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    inventory_id: p.inventory_id,
-                                    quantity: qty,
-                                  }),
-                                }
-                              );
-                              const j = await res.json();
-                              if (!res.ok)
-                                throw new Error(j?.error || "Failed to update");
-                              await load();
-                            } catch (e: any) {
-                              alert(e?.message || "Failed to update");
-                            } finally {
-                              setSavingId(null);
-                            }
                           }}
                           className="inline-flex items-center px-3 py-1 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 mr-2"
                         >
@@ -241,7 +206,7 @@ export default function InventoryPage() {
                             if (!p.inventory_id) return;
                             if (
                               !window.confirm(
-                                "Mark this product as unavailable?"
+                                "Are you sure you want to delete this product? This action cannot be undone."
                               )
                             )
                               return;
@@ -267,8 +232,13 @@ export default function InventoryPage() {
                           }}
                           className="inline-flex items-center px-3 py-1 text-xs rounded-md bg-red-50 text-red-700 hover:bg-red-100"
                         >
-                          Disable
+                          Delete
                         </button>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-500">
+                        {p.created_at
+                          ? new Date(p.created_at).toLocaleString()
+                          : "-"}
                       </td>
                     </tr>
                   ))}

@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
-import { supabase } from "@/lib/supabase/client";
 import {
   Package,
   Clock,
@@ -28,6 +27,8 @@ interface Order {
   order_number: string;
   status: string;
   payment_status: string;
+  payment_method?: string;
+  payment?: { method: string; amount: number; status: string };
   total_amount: number;
   created_at: string;
   estimated_delivery: string | null;
@@ -45,43 +46,24 @@ export default function CustomerOrders() {
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from("orders")
-        .select(
-          `
-          id,
-          order_number,
-          status,
-          payment_status,
-          total_amount,
-          created_at,
-          estimated_delivery,
-          items:order_items(
-            id,
-            product_name,
-            quantity,
-            price_per_unit,
-            subtotal
-          )
-        `
-        )
-        .eq("customer_id", user?.getId())
-        .order("created_at", { ascending: false });
-
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setOrders(data || []);
+      const qs =
+        statusFilter !== "all"
+          ? `?status=${encodeURIComponent(statusFilter)}`
+          : "";
+      const res = await fetch(`/api/orders${qs}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load orders");
+      const data = await res.json();
+      const normalized = (data?.orders || []).map((o: any) => ({
+        ...o,
+        items: o.items ?? o.order_items ?? [],
+      }));
+      setOrders(normalized as Order[]);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
       setLoading(false);
     }
-  }, [user, statusFilter]);
+  }, [statusFilter]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -146,6 +128,24 @@ export default function CustomerOrders() {
   const filteredOrders = orders.filter((order) =>
     order.order_number.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const renderPaymentBadge = (order: Order) => {
+    const isCOD =
+      order.payment?.method === "cod" ||
+      order.payment_method === "cash_on_delivery" ||
+      order.payment_method === "cod";
+    return (
+      <span
+        className={`inline-block px-2 py-0.5 text-xs rounded-full border ${
+          isCOD
+            ? "bg-gray-100 text-gray-700 border-gray-200"
+            : "bg-blue-50 text-blue-700 border-blue-200"
+        }`}
+      >
+        {isCOD ? "Cash on Delivery" : "Online Payment"}
+      </span>
+    );
+  };
 
   if (loading) {
     return (
@@ -273,6 +273,9 @@ export default function CustomerOrders() {
                       >
                         {order.status.replace("_", " ").toUpperCase()}
                       </span>
+                      <div className="mt-2 flex items-center gap-2 justify-end">
+                        {renderPaymentBadge(order)}
+                      </div>
                     </div>
                   </div>
 

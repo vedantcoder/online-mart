@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // GET - Get customer queries
 export async function GET(request: NextRequest) {
@@ -17,7 +18,40 @@ export async function GET(request: NextRequest) {
     const customerId = searchParams.get("customer_id");
     const status = searchParams.get("status");
 
-    // Build query based on user role
+    // Get role
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    // Retailers: use admin client and filter by their orders' seller_id
+    if (profile?.role === "retailer") {
+      let query = supabaseAdmin
+        .from("customer_queries")
+        .select(
+          `
+          *,
+          order:orders(
+            id,
+            order_number,
+            seller_id
+          )
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (status) query = query.eq("status", status);
+
+      // Filter by orders that belong to this retailer
+      query = query.eq("order.seller_id", user.id);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return NextResponse.json({ queries: data || [] });
+    }
+
+    // Customers and others: default behavior with RLS
     let query = supabase
       .from("customer_queries")
       .select(
@@ -164,16 +198,43 @@ export async function PUT(request: NextRequest) {
       updateData.resolution_notes = resolution_notes;
     }
 
-    const { data, error } = await supabase
-      .from("customer_queries")
-      .update(updateData)
-      .eq("id", id)
-      .select()
+    // Only retailers who own the order can resolve queries; use admin client after authorization check
+    // Get role
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
       .single();
 
-    if (error) throw error;
+    if (profile?.role === "retailer") {
+      const { data: q } = await supabaseAdmin
+        .from("customer_queries")
+        .select("id, order_id")
+        .eq("id", id)
+        .single();
+      if (!q) {
+        return NextResponse.json({ error: "Query not found" }, { status: 404 });
+      }
+      const { data: ord } = await supabaseAdmin
+        .from("orders")
+        .select("id, seller_id")
+        .eq("id", q.order_id)
+        .single();
+      if (!ord || ord.seller_id !== user.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const { data, error } = await supabaseAdmin
+        .from("customer_queries")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ query: data });
+    }
 
-    return NextResponse.json({ query: data });
+    // Fallback: deny others from updating
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   } catch (error) {
     console.error("Error updating query:", error);
     const message =

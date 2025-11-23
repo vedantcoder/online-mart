@@ -88,6 +88,51 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Attach payment summary (method, amount, status) using admin client
+    const orderIds = Array.from(new Set((orders || []).map((o: any) => o.id)));
+    if (orderIds.length > 0) {
+      const { data: payments } = await supabaseAdmin
+        .from("payments")
+        .select("order_id, payment_method, amount, status, created_at")
+        .in("order_id", orderIds);
+
+      const payMap = new Map<string, any>();
+      (payments || []).forEach((p: any) => {
+        const existing = payMap.get(p.order_id);
+        if (!existing) {
+          payMap.set(p.order_id, p);
+        } else {
+          // keep the latest by created_at
+          if (new Date(p.created_at) > new Date(existing.created_at)) {
+            payMap.set(p.order_id, p);
+          }
+        }
+      });
+
+      (orders || []).forEach((o: any) => {
+        const pay = payMap.get(o.id);
+        if (pay) {
+          o.payment = {
+            method: pay.payment_method,
+            amount: pay.amount,
+            status: pay.status,
+          };
+        } else if (o.payment_method) {
+          // Fallback to order's payment_method when no payments row exists (e.g., COD)
+          const method =
+            o.payment_method === "cash_on_delivery" ||
+            o.payment_method === "cod"
+              ? "cod"
+              : "online";
+          o.payment = {
+            method,
+            amount: o.total_amount,
+            status: o.payment_status,
+          };
+        }
+      });
+    }
+
     return NextResponse.json({ orders: orders || [] });
   } catch (err: unknown) {
     console.error("ORDERS GET ERROR:", err);
