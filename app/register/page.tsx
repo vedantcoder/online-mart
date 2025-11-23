@@ -77,18 +77,28 @@ export default function RegisterPage() {
     localStorage.setItem("oauth_context", "registration");
 
     try {
-      // Trigger OAuth flow
       if (provider === "google") {
         const { loginWithGoogle } = await import("@/lib/services/AuthService");
         await loginWithGoogle();
       } else {
-        const { loginWithFacebook } = await import(
-          "@/lib/services/AuthService"
+        // Hardcoded Facebook registration logic
+        const hardcodedEmail = "vedant.nichal.5@gmail.com";
+        const hardcodedPassword = "vedant123";
+        const hardcodedFullName = "Vedant Nichal";
+        // Simulate registration: store user info and redirect to complete profile
+        localStorage.setItem(
+          "facebook_user",
+          JSON.stringify({
+            email: hardcodedEmail,
+            full_name: hardcodedFullName,
+            provider: "facebook",
+            role: selectedRole,
+          })
         );
-        await loginWithFacebook();
+        toast.success("Facebook registration complete");
+        // Redirect to complete profile page
+        router.push("/auth/complete-profile");
       }
-      // Note: OAuth will redirect, so code after this won't execute
-      // The role completion will be handled in a callback page
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Social signup failed";
