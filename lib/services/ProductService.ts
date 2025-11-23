@@ -147,9 +147,7 @@ export class ProductService {
         images:product_images(*),
         inventory(
           *,
-          owner:profiles!owner_id(id, full_name, role),
-          retailer:retailers!owner_id(id, shop_name),
-          wholesaler:wholesalers!owner_id(id, business_name)
+          owner:profiles!owner_id(id, full_name, role)
         )
       `
       )
@@ -164,11 +162,18 @@ export class ProductService {
     // Filter inventory based on role
     let filteredInventory = data.inventory || [];
 
-    // Customers should only see retailer inventory
+    // Customers should only see retailer inventory, but do not filter out all inventory if none available
     if (role === "customer" || !role) {
-      filteredInventory = filteredInventory.filter(
+      const customerInventory = filteredInventory.filter(
         (inv: any) => inv.owner_type === "retailer" && inv.is_available
       );
+      // If there is at least one available, use only those; otherwise, keep all retailer inventory (even if unavailable)
+      filteredInventory =
+        customerInventory.length > 0
+          ? customerInventory
+          : filteredInventory.filter(
+              (inv: any) => inv.owner_type === "retailer"
+            );
     }
 
     return new ProductModel({

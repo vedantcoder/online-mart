@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Online-MART Project Report</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        color: #222;
+        background: #fff;
+        margin: 0;
+        padding: 2rem;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        color: #1a202c;
+      }
+      h1 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.5rem;
+      }
+      pre,
+      code {
+        background: #f4f4f4;
+        padding: 0.5em;
+        border-radius: 4px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 2rem;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 0.5em;
+      }
+      th {
+        background: #f9f9f9;
+      }
+      ul,
+      ol {
+        margin-bottom: 1rem;
+      }
+      .section {
+        margin-bottom: 2.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Online-MART: Comprehensive Project Report</h1>
+    <div class="section">
+      <h2>1. Project Overview</h2>
+      <p>
+        Online-MART is a full-stack, multi-role e-commerce platform designed for
+        customers, retailers, wholesalers, and delivery agents. It features
+        robust inventory management, order processing, proxy product listing,
+        analytics, and real-time notifications, built with Next.js, Supabase,
+        and PostgreSQL.
+      </p>
+    </div>
+    <div class="section">
+      <h2>2. Key Features</h2>
+      <ul>
+        <li>
+          Multi-role authentication: Customer, Retailer, Wholesaler, Delivery
+          Person
+        </li>
+        <li>Role-based dashboards and access control</li>
+        <li>
+          Product browsing, search, filtering, cart, wishlist, and reviews
+        </li>
+        <li>Order placement, tracking, and delivery assignment</li>
+        <li>Inventory management with low stock alerts</li>
+        <li>Proxy product system for retailers (list wholesaler products)</li>
+        <li>Business analytics for retailers and wholesalers</li>
+        <li>Automated email and in-app notifications</li>
+        <li>Support ticket and feedback system</li>
+        <li>Secure API with Row Level Security (RLS)</li>
+        <li>Responsive UI/UX</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>3. Architecture & Tech Stack</h2>
+      <ul>
+        <li>
+          <b>Frontend:</b> Next.js (App Router), React, TypeScript, Tailwind CSS
+        </li>
+        <li>
+          <b>Backend:</b> Next.js API routes, Supabase (PostgreSQL, Auth,
+          Storage)
+        </li>
+        <li><b>Database:</b> PostgreSQL (Supabase hosted)</li>
+        <li><b>Email:</b> Resend, SendGrid, or AWS SES (configurable)</li>
+        <li><b>Authentication:</b> Supabase Auth (JWT, OAuth, OTP)</li>
+        <li><b>CI/CD:</b> Vercel (recommended)</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>4. Database & Model Alignment</h2>
+      <p>
+        All models (Product, User, Customer, Retailer, Wholesaler, Inventory,
+        Feedback, etc.) are perfectly aligned with the database schema.
+        Automated triggers ensure inventory consistency and order tracking. See
+        <b>MODEL_DB_ALIGNMENT.md</b> for full details.
+      </p>
+      <pre><code>CREATE TABLE products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  category_id uuid,
+  sku text UNIQUE,
+  base_price numeric,
+  unit text DEFAULT 'piece',
+  specifications jsonb DEFAULT '{}',
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);</code></pre>
+      <p>
+        Other models (User, Customer, Cart, Category, Inventory, ProductImage)
+        are similarly aligned.
+      </p>
+    </div>
+    <div class="section">
+      <h2>5. Implementation Summary</h2>
+      <h3>5.1 Fully Implemented Features</h3>
+      <ul>
+        <li>Order management & status updates (pending → delivered)</li>
+        <li>Email notifications for order updates</li>
+        <li>Wholesaler proxy system (retailers list wholesaler products)</li>
+        <li>Purchase history tracking for customers and retailers</li>
+        <li>Retailer dashboard & analytics</li>
+        <li>Category management</li>
+        <li>
+          UI/UX enhancements (navigation, loading states, responsive design)
+        </li>
+      </ul>
+      <h3>5.2 Partially Implemented / Remaining Work</h3>
+      <ul>
+        <li>
+          Inventory stock updates: APIs exist, order flow integration needed
+        </li>
+        <li>Enhanced add product form: needs more fields and validation</li>
+        <li>Product edit/delete UI: APIs done, UI buttons needed</li>
+        <li>Review system: backend done, UI verification needed</li>
+        <li>Wholesaler dashboard: planned, not started</li>
+      </ul>
+      <h3>5.3 Database Schema Summary</h3>
+      <ul>
+        <li>
+          <b>orders:</b> Links customer to seller, tracks status, payment,
+          delivery
+        </li>
+        <li>
+          <b>inventory:</b> Links product to owner, stores quantity, price, MRP
+        </li>
+        <li>
+          <b>retailer_wholesaler_orders:</b> Tracks retailer-wholesaler
+          transactions
+        </li>
+        <li><b>feedback:</b> Product reviews, verified purchase flag</li>
+        <li><b>notifications:</b> In-app notifications for users</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>6. Wholesaler Proxy System</h2>
+      <p>
+        Retailers can list wholesaler products as proxy items. Orders for proxy
+        items are fulfilled from wholesaler inventory, with automated stock
+        management and commission for retailers. The system uses dedicated
+        tables and triggers for seamless operation.
+      </p>
+      <pre><code>CREATE TABLE proxy_listings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  retailer_id uuid NOT NULL,
+  wholesaler_id uuid NOT NULL,
+  wholesaler_inventory_id uuid NOT NULL,
+  quantity_to_list integer NOT NULL,
+  markup_percentage numeric DEFAULT 0,
+  custom_price numeric,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  UNIQUE(retailer_id, wholesaler_inventory_id)
+);</code></pre>
+      <p>
+        Order flow for proxy items ensures correct inventory deduction and
+        status tracking.
+      </p>
+    </div>
+    <div class="section">
+      <h2>7. API Overview</h2>
+      <ul>
+        <li>
+          <b>Order Management:</b> <code>GET /api/orders</code>,
+          <code>PATCH /api/orders/[id]</code>
+        </li>
+        <li>
+          <b>Retailer APIs:</b> <code>GET /api/retailer/stats</code>,
+          <code>GET /api/retailer/analytics</code>,
+          <code>GET /api/retailer/proxy-inventory</code>
+        </li>
+        <li>
+          <b>Wholesaler APIs:</b> <code>GET /api/wholesaler/inventory</code>,
+          <code>GET /api/wholesaler/orders</code>
+        </li>
+        <li>
+          <b>General:</b> <code>GET /api/categories</code>,
+          <code>POST /api/uploads</code>, <code>GET /api/feedback</code>
+        </li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>8. Setup & Installation</h2>
+      <ol>
+        <li>
+          Clone the repository and install dependencies (<code>npm install</code
+          >)
+        </li>
+        <li>Configure environment variables in <code>.env.local</code></li>
+        <li>
+          Set up Supabase project and run SQL migration scripts in
+          <code>/scripts/</code>
+        </li>
+        <li>Run the development server (<code>npm run dev</code>)</li>
+        <li>Register as each user type to test all flows</li>
+      </ol>
+      <p>
+        See <b>SETUP_INSTRUCTIONS.md</b> for troubleshooting and environment
+        setup details.
+      </p>
+    </div>
+    <div class="section">
+      <h2>9. Testing & Validation</h2>
+      <ul>
+        <li>
+          Test all user flows: registration, product browsing, cart, checkout,
+          order tracking, reviews, support, delivery
+        </li>
+        <li>Use provided test accounts for each role</li>
+        <li>Verify database triggers and RLS policies</li>
+        <li>Check analytics and dashboard metrics</li>
+        <li>
+          See <b>TESTING_GUIDE.md</b> for full test scenarios and checklists
+        </li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>10. Deployment</h2>
+      <ul>
+        <li>Deploy on Vercel (recommended)</li>
+        <li>Set all environment variables in Vercel dashboard</li>
+        <li>Ensure Supabase project is live and migrations are run</li>
+        <li>Test all flows in production before launch</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>11. Security & Access Control</h2>
+      <ul>
+        <li>Row Level Security (RLS) enforced on all tables</li>
+        <li>Service Role Key used only in server-side code</li>
+        <li>Environment variables never exposed to client</li>
+        <li>Role-based access for all APIs and dashboards</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>12. Remaining Work & Future Enhancements</h2>
+      <ul>
+        <li>Integrate inventory stock updates with order flow</li>
+        <li>Complete wholesaler dashboard and analytics</li>
+        <li>Enhance add/edit product forms and validation</li>
+        <li>UI polish and additional testing</li>
+        <li>Email service integration and template improvements</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>13. Acknowledgements</h2>
+      <ul>
+        <li>Built with Next.js, Supabase, PostgreSQL, and Vercel</li>
+        <li>Thanks to all contributors and testers</li>
+      </ul>
+    </div>
+  </body>
+</html>

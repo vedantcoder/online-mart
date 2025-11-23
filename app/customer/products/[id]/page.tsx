@@ -55,12 +55,26 @@ export default function ProductDetailPage() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
 
+  // Helper to get user id (works for both User class and plain object)
+  const getUserId = () => {
+    if (!user) return undefined;
+    if (typeof (user as any).getId === "function") return (user as any).getId();
+    return (user as any).id;
+  };
+  const getUserFullName = () => {
+    if (!user) return undefined;
+    if (typeof (user as any).getFullName === "function")
+      return (user as any).getFullName();
+    return (user as any).fullName;
+  };
+
   useEffect(() => {
-    if (user?.id) {
-      fetchCart(user.id);
-      fetchWishlist(user.id);
+    const uid = getUserId();
+    if (uid) {
+      fetchCart(uid);
+      fetchWishlist(uid);
     }
-  }, [user?.id, fetchCart, fetchWishlist]);
+  }, [user, fetchCart, fetchWishlist]);
 
   useEffect(() => {
     loadProduct();
@@ -163,7 +177,8 @@ export default function ProductDetailPage() {
     if (currentQty < inv.quantity) {
       try {
         if (currentQty === 0) {
-          if (!cart) await fetchCart(user.id);
+          const uid = getUserId();
+          if (!cart && uid) await fetchCart(uid);
           if (cart) {
             await addItem(cart.id, {
               product_id: product.id,
@@ -262,6 +277,25 @@ export default function ProductDetailPage() {
     );
   }
 
+  // If product exists but has no available inventory, show out of stock message
+  if (product && (!product.inventory || product.inventory.length === 0)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Product is currently out of stock
+          </h2>
+          <Link
+            href="/customer/products"
+            className="text-orange-600 hover:underline"
+          >
+            Back to products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Get selected seller's inventory or first available
   const inv = selectedSellerId
     ? product.inventory?.find((i: any) => i.owner_id === selectedSellerId)
@@ -341,7 +375,7 @@ export default function ProductDetailPage() {
                   <div className="px-4 py-2 border-b border-gray-100">
                     <p className="text-sm text-gray-600">Hello,</p>
                     <p className="font-medium text-gray-900">
-                      {user?.fullName || "Customer"}
+                      {getUserFullName() || "Customer"}
                     </p>
                   </div>
                   <Link
@@ -414,11 +448,13 @@ export default function ProductDetailPage() {
                     router.push("/auth/login");
                     return;
                   }
+                  const uid = getUserId();
+                  if (!uid) return;
                   if (isInWishlist(product.id)) {
-                    removeFromWishlist(user.id, product.id);
+                    removeFromWishlist(uid, product.id);
                     toast.success("Removed from wishlist");
                   } else {
-                    addToWishlist(user.id, product.id);
+                    addToWishlist(uid, product.id);
                     toast.success("Added to wishlist");
                   }
                 }}
