@@ -1,226 +1,91 @@
+Problem Statement:
+The COVID-19 pandemic accelerated the global shift toward e-commerce, reshaping consumer buying behavior and retail operations. Today’s retailers cannot rely solely on offering an online option but must provide personalized, user-friendly experiences. Consumers expect advanced search, personalized recommendations, and seamless shopping experiences. Moreover, highlighting region-specific local items is essential for strengthening local businesses.
+This project aims to design and develop an Android/Web-based application that connects Customers, Retailers, and Wholesalers, streamlining the supply chain while enhancing user experience.
+Objectives
+• Build a platform for seamless interaction between customers, retailers, and wholesalers.
+• Provide personalized search, filtering, and recommendations based on browsing/purchase history.
+• Highlight region-specific local products.
+• Ensure transparent pricing, real-time stock updates, and location-based shop suggestions.
+• Enable robust order placement, payment (online/offline), and real-time order tracking.
+User Hierarchy & Roles
+• Customers:
+o Browse/search/filter items
+o Add to cart, place orders, make payments
+o Provide feedback/raise queries
+• Retailers:
+o Manage inventory (add/delete/update items, set pricing)
+o Track customers’ purchase history
+o Place and manage orders with wholesalers
+o Handle payments and customer queries
+• Wholesalers:
+o Manage inventory for retailers
+o Set item pricing
+o Maintain retailer purchase/transaction history
+o Update stock after retailer orders
+Functional Modules
+• Module 1: Registration and Sign-Up
+o Multi-role registration (Customer/Retailer/Wholesaler)
+o Authentication via OTP
+o Social logins (Google/Facebook)
+o Google API integration for location
+• Module 2: User Dashboards
+o Category-wise item listing with images
+o Item details: price, stock status, availability date
+o Retailer’s proxy availability (retailer can show items available via wholesaler)
+• Module 3: Search & Navigation
+o Smart filtering (cost, quantity, stock availability)
+o Location-based shop listings
+o Distance filters for nearby options
+• Module 4: Order & Payment Management
+o Online and offline order placement
+o Calendar integration for offline orders with reminders
+o Order tracking: delivery details, status updates, notifications
+o Automatic stock update after transactions
+• Module 5: Feedback & Dashboard Updates
+o Real-time order status updates
+o Delivery confirmation via SMS/e-mail
+o Product-specific feedback collection
+o Feedback visible on item pages
+Expected Outcomes
+• A functional Android/Web e-commerce platform prototype
+• Enhanced consumer experience with personalized search and localized product visibility
+• Streamlined inventory/order management for retailers and wholesalers
+• Improved feedback mechanisms for product/service quality
+
+
+
+once order is placed it should go to the respective retailer or wholesaler who should be able to update the status or the order (packed, shipped, assigned to delivery agent) and assign it to some delivery agent who can change status to out for delivery and delivered
+customer should be able to see updates of delivery status, once an update is made in delivery status send email notification to customer
+
+check how you want to implement wholesaler proxy for retailers, i didnt understand
+
+what i can think of is retailer can list an item saying i dont have it but xyz wholesaler does so order comes to retailer but supplied from wholesaler inventory so wholesaler should have that item in their inventory and retailer can have an option to list an item with wholesaler proxy where he selects wholesaler and items from available ones and customer can buy order request goes to retailer
+
+retailer should have customer purchase history
+wholesaler should have retailer purchase history
+
+wholesaler must accept order request from their orders page for retailer order to be completed and add it to their inventory
+wholesaler should be able to add products to their inevntory similar to retailer
+inventory of wholesaler will only be visible to retailers to buy when they buy it gets added to their inventory and displayed to customers under that retailer
+
+if retailer puts wholesaler proxy then that item (with specified qty and mentioed as wholesaler_name proxy) will be  visible to customers
+
+update stock properly after customer or retailer order 
+
+add review should only be visible in order details page for each product once user had bought product not for everyone publicly see how you want to handle this
+
+but back buttons for my orders and profile page
+
+retailer update and delete item needs to be fixed should be able to edit all things and delete item too make changes in db entries
+
+add product should ask for all feilds in the inventory and products table name qty price mrp low stock threshold unit Description
+Category(should be select not id) and image (only 1)
+
+retailers View Orders page should show them orders recieved by them thru customers
+
+- No wholesalers found, we need to show all wholesalers from its table and then clicking on each wholesaler will display their items and avaiable quantity for retailers to order
+Find Wholesalers should show available wholesalers with their inventory to buy from anf add to retailer inventory or to display as proxy item
+see if you can build analytics page also
+
+wholesaler nothing has been implemented see that also read all text above and also go thru requirements.txt
 
-flow = 
-home page we can select user role then login and then redirect to the user specific section
-of the website like if its customer login go to the amazon like customer interface which has all the 
-product catalouge and categories cart and order recommendations everything as per the requirements mentioned 
-below
-
-
-frameworks can be used
-we need not force the usage of classes and objects everywhere but adviced to use
-
-Class Diagrams: At a minimum, design classes for:
-
-User (Perhaps an abstract base class)
-
-Customer (inherits from User)
-
-Retailer (inherits from User)
-
-Wholesaler (inherits from User)
-
-Product / Item
-
-Inventory
-
-Order
-
-Cart
-
-can be more
-
-
-Here is a comprehensive checklist based only on the provided project document, organized by the evaluation rubric to help you target all 120 marks.
-
-✅ Project Requirements Checklist
-This checklist is broken down by the Evaluation Rubric  to ensure you meet every graded component.
-
-1. Functionality Implementation (60 Marks)
-This is the largest part of your grade. It requires a working implementation of all mandatory modules.
-
-☐ Module 1: Registration and Sign-Up 
-
-
-Multi-role registration: System must support 'Customer', 'Retailer', and 'Wholesaler' roles.
-
-
-Authentication: Implement authentication via OTP.
-
-
-Social Logins: Include options for Google and/or Facebook logins.
-
-
-Location: Integrate Google API for location services.
-
-
-☐ Module 2: User Dashboards 
-
-
-Item Listing: Show category-wise item listings with images.
-
-
-Item Details: Display price, stock status, and availability date for items.
-
-
-Proxy Availability: Retailers must be able to show items that are available via their wholesaler (even if not in their own stock).
-
-☐ Module 3: Search & Navigation 
-
-
-Smart Filtering: Implement filters for cost, quantity, and stock availability.
-
-
-Location-Based Listings: Provide location-based shop listings.
-
-
-Distance Filters: Allow users to filter for nearby options.
-
-☐ Module 4: Order & Payment Management 
-
-
-Order Placement: Support both online and offline order placement.
-
-
-Calendar Integration: For offline orders, integrate a calendar with reminders.
-
-
-Order Tracking: Implement real-time tracking with delivery details, status updates, and notifications.
-
-
-Stock Updates: Stock must update automatically after transactions.
-
-☐ Module 5: Feedback & Dashboard Updates 
-
-
-Status Updates: Provide real-time order status updates.
-
-
-Confirmations: Send delivery confirmations via SMS and/or e-mail.
-
-
-
-Feedback Collection: Allow for product-specific feedback collection.
-
-
-Feedback Display: Make collected feedback visible on item pages.
-
-☐ User Hierarchy & Roles 
-
-Customer Role:
-
-Browse, search, and filter items.
-
-Add to cart, place orders, and make payments.
-
-Provide feedback and raise queries.
-
-Retailer Role:
-
-Manage inventory (add/delete/update items, set pricing).
-
-Track customers' purchase history.
-
-Place and manage orders with wholesalers.
-
-Handle payments and customer queries.
-
-Wholesaler Role:
-
-Manage inventory for retailers.
-
-Set item pricing.
-
-Maintain retailer purchase/transaction history.
-
-Update stock after retailer orders.
-
-2. Technical Depth (15 Marks)
-
-Code Quality: Ensure your code is well-structured and maintainable.
-
-API Usage (Mandatory):
-
-Use the Google API (for location).
-
-
-Use payment gateways (e.g., a test version of Stripe, etc.).
-
-
-Third-Party Integration: Show integration with services like SMS/email for notifications.
-
-
-
-Scalability: Design the system with scalability in mind.
-
-
-Modern Tech: Actively use modern advanced technology, platforms, or paradigms, as high use will attract high grades. You are encouraged to use available APIs and packages, not build from scratch.
-
-
-3. Documentation & Presentation (15 Marks)
-Project Report:
-
-Submit a complete and clear PDF report.
-
-
-Report must include your System Design & Architecture.
-
-Video Presentation:
-
-Record a 15-20 minute video presentation.
-
-The video must be a demo of the working application.
-
-
-All group members must be involved in the video.
-
-In the video, each member must introduce themselves.
-
-In the video, each member must explain the functioning of the module(s) they worked on.
-
-4. Innovation & User Experience (10 Marks)
-
-Personalized Recommendations: Implement this value-added feature (e.g., based on browsing/purchase history).
-
-
-UI/UX Design:
-
-Ensure a good, creative UI/UX design.
-
-
-Ensure ease of navigation.
-
-Provide appropriate links to transition between options.
-
-
-Crucial: Maintain a difference in the GUI for the "user" vs. the "delivery person".
-
-
-Responsiveness: The application should be mobile or web responsive.
-
-
-Localized Products: The app must be able to highlight region-specific local products.
-
-
-5. System Design & Architecture (10 Marks)
-
-Problem Understanding: Your design (and report) must show a clear understanding of the problem.
-
-
-Prototype Development Plan: Show clear planning in the development of the prototype (e.g., class diagrams, database schema, flowcharts) in your report.
-
-6. Testing & Validation (10 Marks)
-
-Testing Types: Show evidence of unit testing and integration testing.
-
-
-Bug Resolution: Demonstrate that bugs have been found and resolved.
-
-Edge Case Handling: Your application must gracefully handle edge cases, specifically:
-
-Stock unavailability.
-
-Payment failure.
-
-proper api usage for payment maps etc etc
-
-set NODE_TLS_REJECT_UNAUTHORIZED=0 && npm run dev

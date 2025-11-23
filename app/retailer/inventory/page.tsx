@@ -10,6 +10,7 @@ type ProductRow = {
   category_id?: string | null;
   stock?: number | null;
   base_price?: number | null;
+  low_stock_threshold?: number | null;
   created_at?: string | null;
 };
 
@@ -82,7 +83,13 @@ export default function InventoryPage() {
           <div className="bg-white p-4 rounded-lg shadow">
             <p className="text-sm text-gray-600">Low stock</p>
             <p className="text-2xl font-bold mt-2 text-gray-900">
-              {products.filter((p) => (p.stock ?? 0) < 5).length}
+              {
+                products.filter((p) => {
+                  const qty = Number(p.stock ?? 0);
+                  const threshold = Number(p.low_stock_threshold ?? 10);
+                  return qty <= threshold;
+                }).length
+              }
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
@@ -153,7 +160,7 @@ export default function InventoryPage() {
                   {products.map((p) => (
                     <tr key={p.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden shrink-0">
                           {p.images && p.images.length ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img

@@ -34,6 +34,24 @@ CREATE TABLE public.categories (
   CONSTRAINT categories_pkey PRIMARY KEY (id),
   CONSTRAINT categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categories(id)
 );
+CREATE TABLE public.customer_queries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  order_id uuid,
+  subject text NOT NULL,
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'in_progress'::text, 'resolved'::text, 'closed'::text])),
+  priority text DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])),
+  assigned_to uuid,
+  resolution_notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  resolved_at timestamp with time zone,
+  CONSTRAINT customer_queries_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_queries_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_queries_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT customer_queries_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.customers (
   id uuid NOT NULL,
   street_address text,
@@ -58,6 +76,23 @@ CREATE TABLE public.delivery_persons (
   CONSTRAINT delivery_persons_pkey PRIMARY KEY (id),
   CONSTRAINT delivery_persons_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.feedback (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  customer_id uuid NOT NULL,
+  order_id uuid,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text text,
+  images jsonb DEFAULT '[]'::jsonb,
+  helpful_count integer DEFAULT 0,
+  verified_purchase boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT feedback_pkey PRIMARY KEY (id),
+  CONSTRAINT feedback_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT feedback_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT feedback_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
 CREATE TABLE public.inventory (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   product_id uuid NOT NULL,
@@ -73,6 +108,73 @@ CREATE TABLE public.inventory (
   CONSTRAINT inventory_pkey PRIMARY KEY (id),
   CONSTRAINT inventory_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT inventory_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  type text NOT NULL CHECK (type = ANY (ARRAY['order'::text, 'delivery'::text, 'feedback'::text, 'stock'::text, 'system'::text])),
+  title text NOT NULL,
+  message text NOT NULL,
+  link text,
+  is_read boolean DEFAULT false,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.offline_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  retailer_id uuid NOT NULL,
+  scheduled_date timestamp with time zone NOT NULL,
+  items jsonb NOT NULL,
+  notes text,
+  reminder_sent boolean DEFAULT false,
+  status text NOT NULL DEFAULT 'scheduled'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT offline_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT offline_orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT offline_orders_retailer_id_fkey FOREIGN KEY (retailer_id) REFERENCES public.retailers(id)
+);
+CREATE TABLE public.order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  product_name text NOT NULL,
+  product_image text,
+  quantity integer NOT NULL CHECK (quantity > 0),
+  price_per_unit numeric NOT NULL,
+  subtotal numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_number text NOT NULL UNIQUE,
+  customer_id uuid NOT NULL,
+  seller_id uuid NOT NULL,
+  delivery_person_id uuid,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'processing'::text, 'packed'::text, 'shipped'::text, 'out_for_delivery'::text, 'delivered'::text, 'cancelled'::text, 'failed'::text])),
+  payment_status text NOT NULL DEFAULT 'pending'::text CHECK (payment_status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])),
+  payment_method text CHECK (payment_method = ANY (ARRAY['online'::text, 'cod'::text, 'offline'::text])),
+  subtotal numeric NOT NULL,
+  tax_amount numeric DEFAULT 0,
+  delivery_charges numeric DEFAULT 0,
+  discount_amount numeric DEFAULT 0,
+  total_amount numeric NOT NULL,
+  delivery_address jsonb NOT NULL,
+  delivery_notes text,
+  estimated_delivery timestamp with time zone,
+  actual_delivery timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT orders_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
+  CONSTRAINT orders_delivery_person_id_fkey FOREIGN KEY (delivery_person_id) REFERENCES public.delivery_persons(id)
 );
 CREATE TABLE public.product_images (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -111,6 +213,39 @@ CREATE TABLE public.profiles (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.retailer_wholesaler_order_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  product_name text NOT NULL,
+  quantity integer NOT NULL CHECK (quantity > 0),
+  price_per_unit numeric NOT NULL,
+  subtotal numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT retailer_wholesaler_order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT retailer_wholesaler_order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.retailer_wholesaler_orders(id),
+  CONSTRAINT retailer_wholesaler_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.retailer_wholesaler_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_number text NOT NULL UNIQUE,
+  retailer_id uuid NOT NULL,
+  wholesaler_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'processing'::text, 'ready'::text, 'delivered'::text, 'cancelled'::text])),
+  payment_status text NOT NULL DEFAULT 'pending'::text CHECK (payment_status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])),
+  subtotal numeric NOT NULL,
+  tax_amount numeric DEFAULT 0,
+  total_amount numeric NOT NULL,
+  delivery_address jsonb,
+  notes text,
+  estimated_delivery timestamp with time zone,
+  actual_delivery timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT retailer_wholesaler_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT retailer_wholesaler_orders_retailer_id_fkey FOREIGN KEY (retailer_id) REFERENCES public.retailers(id),
+  CONSTRAINT retailer_wholesaler_orders_wholesaler_id_fkey FOREIGN KEY (wholesaler_id) REFERENCES public.wholesalers(id)
 );
 CREATE TABLE public.retailers (
   id uuid NOT NULL,

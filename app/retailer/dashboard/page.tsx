@@ -11,6 +11,7 @@ import {
   Users,
   TrendingUp,
   LogOut,
+  DollarSign,
 } from "lucide-react";
 
 export default function RetailerDashboard() {
@@ -21,6 +22,8 @@ export default function RetailerDashboard() {
     lowStockItems: 0,
     pendingOrders: 0,
     connectedWholesalers: 0,
+    totalValue: 0,
+    lastAdded: "None",
   });
 
   useEffect(() => {
@@ -169,6 +172,33 @@ export default function RetailerDashboard() {
             </div>
           </div>
 
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Last Added</p>
+                <p className="text-lg font-bold text-gray-900 mt-1 truncate">
+                  {stats.lastAdded}
+                </p>
+              </div>
+              <Package size={32} className="text-blue-600" />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Inventory Value</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">
+                  ₹{stats.totalValue.toFixed(2)}
+                </p>
+              </div>
+              <DollarSign size={32} className="text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center justify-between">
               <div>

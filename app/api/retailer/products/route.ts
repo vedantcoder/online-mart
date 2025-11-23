@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * GET -> list products for authenticated retailer (based on inventory ownership)
@@ -27,6 +28,7 @@ export async function GET() {
         quantity,
         price,
         mrp,
+        low_stock_threshold,
         created_at,
         product:products(
           id,
@@ -40,6 +42,7 @@ export async function GET() {
       )
       .eq("owner_id", user.id)
       .eq("owner_type", "retailer")
+      .eq("is_available", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -65,6 +68,7 @@ export async function GET() {
         category_id: product.category_id ?? null,
         stock: Number(row.quantity ?? 0),
         base_price: Number(row.price ?? product.base_price ?? 0),
+        low_stock_threshold: row.low_stock_threshold ?? null,
         created_at: row.created_at ?? product.created_at ?? null,
       };
     });
@@ -242,6 +246,9 @@ export async function POST(req: Request) {
       base_price = null,
       unit = "piece",
       stock = 0,
+      price = null,
+      mrp = null,
+      low_stock_threshold = 5,
       images = [],
       specifications = {},
       is_active = true,
@@ -279,7 +286,8 @@ export async function POST(req: Request) {
         is_primary: idx === 0,
         display_order: idx,
       }));
-      const { error: imgErr } = await supabase
+      // Use admin client to bypass RLS on product_images
+      const { error: imgErr } = await supabaseAdmin
         .from("product_images")
         .insert(rows);
       if (imgErr) throw imgErr;
@@ -287,15 +295,20 @@ export async function POST(req: Request) {
 
     // 3) Create initial inventory owned by retailer
     const quantity = Number(stock || 0);
-    const price =
-      base_price !== null && base_price !== undefined ? Number(base_price) : 0;
+    const invPrice =
+      price !== null && price !== undefined
+        ? Number(price)
+        : base_price !== null && base_price !== undefined
+        ? Number(base_price)
+        : 0;
     const { error: invErr } = await supabase.from("inventory").insert({
       product_id: product.id,
       owner_id: user.id,
       owner_type: "retailer",
       quantity,
-      price,
-      mrp: price || null,
+      price: invPrice,
+      mrp: mrp !== null && mrp !== undefined ? Number(mrp) : invPrice || null,
+      low_stock_threshold: Number(low_stock_threshold ?? 5),
       is_available: quantity > 0,
     });
     if (invErr) throw invErr;
