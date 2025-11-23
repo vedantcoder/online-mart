@@ -54,7 +54,7 @@ Expected Outcomes
 
 
 
-once order is placed it should go to the respective retailer or wholesaler who should be able to update the status or the order (packed, shipped, assigned to delivery agent) and assign it to some delivery agent who can change status to out for delivery and delivered
+once order is placed it should go to the respective retailer who should be able to update the status of the order (packed, shipped, assigned to delivery agent) and assign it to some delivery agent who can change status to out for delivery and delivered
 customer should be able to see updates of delivery status, once an update is made in delivery status send email notification to customer
 
 check how you want to implement wholesaler proxy for retailers, i didnt understand

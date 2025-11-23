@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,10 +90,29 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.total_revenue - a.total_revenue)
       .slice(0, 10);
 
+    // Prepare customer name map using admin (bypass RLS) to avoid Unknown
+    const uniqueCustomerIds = Array.from(
+      new Set(orders?.map((o) => o.customer_id) || [])
+    );
+    const { data: profileRows } = uniqueCustomerIds.length
+      ? await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", uniqueCustomerIds)
+      : ({ data: [] } as any);
+    const nameMap = new Map<string, string>(
+      (profileRows || []).map((p: any) => [
+        p.id as string,
+        (p.full_name as string) || "",
+      ])
+    );
+
     // Top customers
     const customerMap = new Map();
     orders?.forEach((order) => {
-      const customerName = order.customer?.profiles?.full_name || "Unknown";
+      const nestedName = (order as any).customer?.profiles?.full_name;
+      const customerName =
+        nameMap.get(order.customer_id) || nestedName || "Unknown";
       const existing = customerMap.get(order.customer_id) || {
         total_orders: 0,
         total_spent: 0,
@@ -111,7 +131,10 @@ export async function GET(request: NextRequest) {
     // Recent orders
     const recentOrders = (orders || []).slice(0, 10).map((order) => ({
       order_number: order.order_number,
-      customer_name: order.customer?.profiles?.full_name || "Unknown",
+      customer_name:
+        nameMap.get(order.customer_id) ||
+        (order as any).customer?.profiles?.full_name ||
+        "Unknown",
       total_amount: Number(order.total_amount),
       status: order.status,
       created_at: order.created_at,

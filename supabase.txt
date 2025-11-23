@@ -105,9 +105,13 @@ CREATE TABLE public.inventory (
   low_stock_threshold integer DEFAULT 10,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  supplier_owner_id uuid,
+  is_proxy boolean DEFAULT false,
+  visible_to_retailers boolean DEFAULT false,
   CONSTRAINT inventory_pkey PRIMARY KEY (id),
   CONSTRAINT inventory_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT inventory_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.profiles(id)
+  CONSTRAINT inventory_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.profiles(id),
+  CONSTRAINT inventory_supplier_owner_id_fkey FOREIGN KEY (supplier_owner_id) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.notifications (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -158,8 +162,8 @@ CREATE TABLE public.orders (
   seller_id uuid NOT NULL,
   delivery_person_id uuid,
   status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'processing'::text, 'packed'::text, 'shipped'::text, 'out_for_delivery'::text, 'delivered'::text, 'cancelled'::text, 'failed'::text])),
-  payment_status text NOT NULL DEFAULT 'pending'::text CHECK (payment_status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])),
-  payment_method text CHECK (payment_method = ANY (ARRAY['online'::text, 'cod'::text, 'offline'::text])),
+  payment_status text NOT NULL DEFAULT 'pending'::text CHECK (payment_status = ANY (ARRAY['pending'::text, 'pending_cod'::text, 'completed'::text, 'failed'::text, 'refunded'::text])),
+  payment_method text CHECK (payment_method = ANY (ARRAY['online'::text, 'cash_on_delivery'::text, 'cod'::text, 'offline'::text, 'razorpay'::text, 'upi'::text])),
   subtotal numeric NOT NULL,
   tax_amount numeric DEFAULT 0,
   delivery_charges numeric DEFAULT 0,
@@ -171,10 +175,20 @@ CREATE TABLE public.orders (
   actual_delivery timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  payment_gateway text,
+  payment_gateway_order_id text,
+  payment_gateway_payment_id text,
+  payment_gateway_signature text,
+  supplier_id uuid,
+  parent_order_id uuid,
+  fulfillment_source text DEFAULT 'retailer'::text CHECK (fulfillment_source = ANY (ARRAY['retailer'::text, 'wholesaler'::text])),
+  supplier_status text,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
   CONSTRAINT orders_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
-  CONSTRAINT orders_delivery_person_id_fkey FOREIGN KEY (delivery_person_id) REFERENCES public.delivery_persons(id)
+  CONSTRAINT orders_delivery_person_id_fkey FOREIGN KEY (delivery_person_id) REFERENCES public.delivery_persons(id),
+  CONSTRAINT orders_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES public.profiles(id),
+  CONSTRAINT orders_parent_order_id_fkey FOREIGN KEY (parent_order_id) REFERENCES public.orders(id)
 );
 CREATE TABLE public.product_images (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -260,6 +274,20 @@ CREATE TABLE public.retailers (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT retailers_pkey PRIMARY KEY (id),
   CONSTRAINT retailers_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.stock_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  inventory_id uuid,
+  change_type text CHECK (change_type = ANY (ARRAY['added'::text, 'removed'::text, 'sold'::text, 'returned'::text, 'adjusted'::text])),
+  quantity_change integer NOT NULL,
+  quantity_after integer NOT NULL,
+  reason text,
+  reference_id uuid,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT stock_history_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_history_inventory_id_fkey FOREIGN KEY (inventory_id) REFERENCES public.inventory(id),
+  CONSTRAINT stock_history_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.wholesalers (
   id uuid NOT NULL,

@@ -77,6 +77,14 @@ export default function CartPage() {
     return cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   };
 
+  const handleProceedToCheckout = () => {
+    if (!cart || !cart.items || cart.items.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
+    router.push("/customer/checkout");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -372,7 +380,10 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <button className="w-full py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-lg shadow-sm hover:shadow-md">
+                <button
+                  onClick={handleProceedToCheckout}
+                  className="w-full py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-lg shadow-sm hover:shadow-md"
+                >
                   Proceed to Checkout
                 </button>
 

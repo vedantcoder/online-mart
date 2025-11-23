@@ -24,18 +24,29 @@ export async function GET(
       .select(
         `
         *,
-        customer:customers!customer_id(id, street_address, city, state, pincode),
+        customer:customers!customer_id(id, street_address, city, state, pincode, profiles!id(full_name, email, phone)),
         seller:profiles!seller_id(id, full_name, email, phone, role),
         delivery_person:delivery_persons(id, profiles!id(full_name, phone, email)),
-        order_items(id, product_id, product_name, product_image, quantity, price_per_unit, subtotal)
+        items:order_items(id, product_id, product_name, product_image, quantity, price_per_unit, subtotal)
       `
       )
       .eq("id", id)
       .single();
 
     if (orderErr) throw orderErr;
+    // Normalize shape: flatten delivery_person to expected { full_name, phone }
+    let normalized = order as any;
+    if (normalized?.delivery_person?.profiles) {
+      normalized = {
+        ...normalized,
+        delivery_person: {
+          full_name: normalized.delivery_person.profiles.full_name,
+          phone: normalized.delivery_person.profiles.phone,
+        },
+      };
+    }
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: normalized });
   } catch (err: unknown) {
     console.error("ORDER GET ERROR:", err);
     return NextResponse.json(
@@ -100,7 +111,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, string | number | boolean> = {};
 
     // Retailers/Wholesalers can update status to: confirmed, processing, packed, shipped
     // They can also assign delivery person
@@ -123,9 +134,20 @@ export async function PATCH(
         updateData.delivery_person_id = delivery_person_id;
       }
 
-      if (payment_status && ["completed", "failed"].includes(payment_status)) {
+      if (
+        payment_status &&
+        ["completed", "failed", "pending"].includes(payment_status)
+      ) {
         updateData.payment_status = payment_status;
       }
+      // Optional metadata passthrough (e.g., manual offline payment confirmation)
+      if (body.payment_method) updateData.payment_method = body.payment_method;
+      if (body.payment_gateway)
+        updateData.payment_gateway = body.payment_gateway;
+      if (body.payment_gateway_payment_id)
+        updateData.payment_gateway_payment_id = body.payment_gateway_payment_id;
+      if (body.payment_gateway_order_id)
+        updateData.payment_gateway_order_id = body.payment_gateway_order_id;
     }
 
     // Delivery persons can update status to: out_for_delivery, delivered

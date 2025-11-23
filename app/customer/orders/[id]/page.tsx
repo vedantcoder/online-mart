@@ -15,6 +15,7 @@ import {
   Truck,
   CheckCircle2,
 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
 
 interface OrderItem {
   id: string;
@@ -29,6 +30,10 @@ interface OrderDetails {
   order_number: string;
   status: string;
   payment_status: string;
+  payment_method?: string;
+  payment_gateway?: string;
+  payment_gateway_payment_id?: string;
+  payment_gateway_order_id?: string;
   total_amount: number;
   subtotal: number;
   tax_amount: number;
@@ -54,6 +59,104 @@ interface OrderDetails {
   };
 }
 
+interface PayOrCODButtonProps {
+  orderId: string;
+  disabled?: boolean;
+}
+
+const PayOrCODButton: React.FC<PayOrCODButtonProps> = ({
+  orderId,
+  disabled,
+}) => {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCOD = async () => {
+    try {
+      setLoading("cod");
+      setError(null);
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_status: "pending_cod",
+          payment_method: "cash_on_delivery",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to set COD");
+      window.location.reload();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to set COD");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleOnlinePay = async () => {
+    try {
+      setLoading("online");
+      setError(null);
+
+      // Create payment intent
+      const createRes = await fetch(`/api/payments/stripe/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      if (!createRes.ok) throw new Error("Failed to create payment");
+      const data: { clientSecret: string; paymentIntentId: string } =
+        await createRes.json();
+
+      // Load Stripe
+      const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+      if (!stripePublicKey) {
+        throw new Error("Stripe not configured");
+      }
+      const stripe = await loadStripe(stripePublicKey);
+      if (!stripe) throw new Error("Failed to load Stripe");
+
+      // Redirect to Stripe Checkout
+      const { error: stripeError } = await stripe.confirmPayment({
+        clientSecret: data.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/customer/orders/${orderId}?payment_success=true`,
+        },
+      });
+
+      if (stripeError) {
+        throw new Error(stripeError.message);
+      }
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error ? e.message : "Payment initialization failed"
+      );
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex gap-3">
+        <button
+          disabled={disabled || loading !== null}
+          onClick={handleCOD}
+          className="px-4 py-2 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50"
+        >
+          {loading === "cod" ? "Setting..." : "Cash on Delivery"}
+        </button>
+        <button
+          disabled={disabled || loading !== null}
+          onClick={handleOnlinePay}
+          className="px-4 py-2 text-sm rounded-md bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          {loading === "online" ? "Processing..." : "Pay Online"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -62,30 +165,49 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const loadOrder = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          `
-          *,
-          items:order_items(*),
-          seller:profiles!orders_seller_id_fkey(full_name, phone),
-          delivery_person:profiles!orders_delivery_person_id_fkey(full_name, phone)
-        `
-        )
-        .eq("id", params.id)
-        .eq("customer_id", user?.getId())
-        .single();
-
-      if (error) throw error;
-      setOrder(data);
+      const res = await fetch(`/api/orders/${params.id}`);
+      if (!res.ok) throw new Error("Failed to fetch order");
+      const json = await res.json();
+      setOrder(json.order);
     } catch (error) {
       console.error("Error loading order:", error);
     } finally {
       setLoading(false);
     }
   }, [params.id, user]);
+
+  // Handle Stripe payment success callback
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentSuccess = searchParams.get("payment_success");
+    const paymentIntentId = searchParams.get("payment_intent");
+
+    if (paymentSuccess === "true" && paymentIntentId && params.id) {
+      // Verify payment with backend
+      fetch(`/api/payments/stripe/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: params.id,
+          payment_intent_id: paymentIntentId,
+        }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            // Remove query params and reload order
+            window.history.replaceState({}, "", window.location.pathname);
+            loadOrder();
+          }
+        })
+        .catch((err) => console.error("Payment verification failed:", err));
+    }
+  }, [params.id, loadOrder]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -440,12 +562,36 @@ export default function OrderDetailPage() {
                     {order.payment_status.toUpperCase()}
                   </span>
                 </div>
+                {order.payment_method && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Method</span>
+                    <span className="font-medium text-gray-900 capitalize">
+                      {order.payment_method.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount</span>
                   <span className="font-medium text-gray-900">
                     ₹{order.total_amount.toFixed(2)}
                   </span>
                 </div>
+                {order.payment_gateway && order.payment_gateway_payment_id && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Gateway Ref</span>
+                    <span className="text-xs text-gray-700 truncate max-w-40">
+                      {order.payment_gateway_payment_id}
+                    </span>
+                  </div>
+                )}
+                {order.payment_status !== "completed" && (
+                  <div className="pt-3">
+                    <PayOrCODButton
+                      orderId={order.id}
+                      disabled={order.payment_status === "completed"}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
